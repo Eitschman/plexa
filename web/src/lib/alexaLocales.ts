@@ -4,6 +4,7 @@ export interface AlexaLocale {
 }
 
 export const ALEXA_LOCALES: AlexaLocale[] = [
+  { value: 'de-DE', label: 'Deutsch (Deutschland)' },  
   { value: 'en-US', label: 'English (US)' },
   { value: 'en-GB', label: 'English (UK)' },
   { value: 'en-CA', label: 'English (Canada)' },
