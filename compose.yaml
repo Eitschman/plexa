@@ -8,6 +8,7 @@ services:
       - "${HOST_PORT:-3000}:3000"
     environment:
       PORT: 3000
+      NODE_ENV: production
       DATA_DIR: /data
       APP_SECRET: ${APP_SECRET}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
