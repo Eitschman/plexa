@@ -113,6 +113,32 @@ describe('signed media urls', () => {
     expect(artUrlForTrack('42', undefined)).toBeUndefined();
   });
 
+  it('does not expose Plex token in signed artwork payload', () => {
+    const path = artUrlForTrack(
+      '42',
+      'https://example.plex.direct:32400/library/metadata/42/thumb/123?X-Plex-Token=super-secret-token',
+    );
+
+    expect(path).toBeDefined();
+    expect(path).not.toContain('super-secret-token');
+
+    const token = path!.split('/artwork/')[1];
+    const encoded = token.split('.')[0];
+
+    const payload = JSON.parse(
+      Buffer.from(encoded, 'base64url').toString('utf8'),
+    ) as {
+      ratingKey: string;
+      kind: string;
+      thumb?: string;
+    };
+
+    expect(payload.ratingKey).toBe('42');
+    expect(payload.kind).toBe('artwork');
+    expect(payload.thumb).toBe('/library/metadata/42/thumb/123');
+    expect(payload.thumb).not.toContain('X-Plex-Token');
+  });
+
   it('rejects artwork tokens that omit thumb with a clean 404', async () => {
     const { handleArtworkRequest } = await import('../src/media/gateway.js');
     const path = createSignedMediaPath('99', 'artwork');

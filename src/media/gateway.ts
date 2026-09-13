@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { getEnv, signPayload } from '../config/index.js';
 import { getPublicBaseUrl } from '../services/settings.js';
 import { requirePlexConnected } from '../plex/auth.js';
-import { plexAdapter } from '../plex/adapter.js';
+import { normalizeThumbPath, plexAdapter } from '../plex/adapter.js';
 import { logger } from '../logger.js';
 
 const MEDIA_TTL_SEC = 3600;
@@ -78,7 +78,7 @@ export function createSignedSegmentPath(path: string): string {
 /** Signed artwork path when Plex metadata includes a thumb; otherwise undefined. */
 export function artUrlForTrack(ratingKey: string, thumb?: string): string | undefined {
   if (!thumb) return undefined;
-  return createSignedMediaPath(ratingKey, 'artwork', thumb);
+  return createSignedMediaPath(ratingKey, 'artwork', normalizeThumbPath(thumb));
 }
 
 /** Absolute URL for Alexa (requires PUBLIC_URL / Settings public_url). */
