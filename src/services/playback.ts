@@ -282,16 +282,12 @@ export function normalizeSpokenName(name: string): string {
 
 export function bestMatch<T extends { title: string }>(query: string, items: T[]): T | null {
   const q = normalizeSpokenName(query);
-  // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,C,E',location:'playback.ts:bestMatch:entry',message:'bestMatch input',data:{queryRaw:query,queryNormalized:q,queryCharCodes:[...query].map((c)=>c.charCodeAt(0)),itemsCount:items.length,itemTitles:items.map((i)=>i.title)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   if (!q) return null;
   const exact = items.find((i) => i.title.toLowerCase() === q);
   const contains = items.filter((i) => i.title.toLowerCase().includes(q));
   const reverseContains = items.filter((i) => q.includes(i.title.toLowerCase()));
-  // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,C',location:'playback.ts:bestMatch:branches',message:'bestMatch branch results',data:{exactTitle:exact?.title??null,containsCount:contains.length,containsTitles:contains.map((i)=>i.title),reverseContainsCount:reverseContains.length,reverseContainsTitles:reverseContains.map((i)=>i.title)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   if (exact) return exact;
   if (contains.length === 1) return contains[0];
   if (reverseContains.length === 1) return reverseContains[0];

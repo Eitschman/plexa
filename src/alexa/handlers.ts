@@ -163,9 +163,7 @@ const PlayPlaylistIntentHandler: RequestHandler = {
     const intent = getIntent(input);
     const slot = intent?.slots?.playlist?.value;
     const playlistSlot = intent?.slots?.playlist;
-    // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,E',location:'handlers.ts:PlayPlaylistIntent:slot',message:'Alexa playlist slot received',data:{intentName:intent?.name,slotValue:slot??null,slotResolutions:playlistSlot?.resolutions?.resolutionsPerAuthority??null,requestType:input.requestEnvelope.request.type},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+
     if (!slot) {
       logAlexaEvent({
         type: AlexaEventType.PlayPlaylistIntent,
@@ -177,13 +175,9 @@ const PlayPlaylistIntentHandler: RequestHandler = {
     try {
       await ensurePlex();
       const playlists = await plexAdapter.listPlaylists();
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'B',location:'handlers.ts:PlayPlaylistIntent:plex',message:'Plex playlists loaded',data:{playlistCount:playlists.length,playlistTitles:playlists.map((p)=>p.title),playlistKeys:playlists.map((p)=>p.ratingKey)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
       const match = bestMatch(slot, playlists);
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,B,C',location:'handlers.ts:PlayPlaylistIntent:match',message:'Playlist match result',data:{slotValue:slot,matchedTitle:match?.title??null,matchedKey:match?.ratingKey??null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
       if (!match) {
         logAlexaEvent({
           type: AlexaEventType.PlayPlaylistIntent,
@@ -224,9 +218,7 @@ const PlayPlaylistIntentHandler: RequestHandler = {
       }
       return response;
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'pre-fix',hypothesisId:'D',location:'handlers.ts:PlayPlaylistIntent:error',message:'PlayPlaylistIntent failed',data:{error:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
       logAlexaEvent({
         type: AlexaEventType.PlayPlaylistIntent,
         summary: summarizePlexNotConfigured(),

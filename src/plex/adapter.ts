@@ -450,14 +450,10 @@ export class PlexAdapter {
         { containerStart: start, containerSize: window, maxResults: window },
       );
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'B',location:'adapter.ts:listPlaylistsPage:error',message:'Plex playlist fetch failed',data:{error:err instanceof Error?err.message:String(err),start,size},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
       throw err;
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'B',location:'adapter.ts:listPlaylistsPage:result',message:'Plex playlist fetch result',data:{start,size,rawCount:items.length,titles:items.map((p)=>p.title??'Unknown')},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+
     return toPageResult(items.map(mapPlaylist), start, size);
   }
 
