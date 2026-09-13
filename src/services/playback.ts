@@ -278,32 +278,97 @@ export function normalizeSpokenName(name: string): string {
     .replace(/^(ask|tell)\s+\w+(\s+\w+)?\s+to\s+/i, '')
     .replace(/^(play|start|mix|shuffle)\s+/i, '')
     .replace(/^(the|my)\s+/i, '')
-    .replace(/\s+(playlist|album|song|track)$/i, '')
 
     // German Alexa phrasing
     .replace(/^(spiele|spiel|starte|mische)\s+/i, '')
     .replace(/^(den|die|das|meine|meinen|mein)\s+/i, '')
-    .replace(/^(künstler|kuenstler)\s+/i, '')
     .replace(/^(musik\s+von|etwas\s+von)\s+/i, '')
-    .replace(/\s+(playlist|album|lied|titel|künstler|kuenstler)$/i, '')
-    .replace(/\s+zufällig$/i, '')
-    .replace(/\s+zufaellig$/i, '')
+
+    // Media type prefixes
+    .replace(/^(playlist|album|lied|titel|künstler|kuenstler)\s+/i, '')
+
+    // Media type suffixes
+    .replace(/\s+(playlist|album|song|track|lied|titel|künstler|kuenstler)$/i, '')
+
+    // German shuffle suffix
+    .replace(/\s+(zufällig|zufaellig)$/i, '')
 
     .trim();
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const matrix = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+
+  for (let i = 0; i < rows; i++) matrix[i][0] = i;
+  for (let j = 0; j < cols; j++) matrix[0][j] = j;
+
+  for (let i = 1; i < rows; i++) {
+    for (let j = 1; j < cols; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[a.length][b.length];
+}
+
+function similarity(a: string, b: string): number {
+  const maxLength = Math.max(a.length, b.length);
+
+  if (maxLength === 0) return 1;
+
+  return 1 - levenshteinDistance(a, b) / maxLength;
 }
 
 export function bestMatch<T extends { title: string }>(query: string, items: T[]): T | null {
   const q = normalizeSpokenName(query);
 
   if (!q) return null;
-  const exact = items.find((i) => i.title.toLowerCase() === q);
-  const contains = items.filter((i) => i.title.toLowerCase().includes(q));
-  const reverseContains = items.filter((i) => q.includes(i.title.toLowerCase()));
 
-  if (exact) return exact;
-  if (contains.length === 1) return contains[0];
-  if (reverseContains.length === 1) return reverseContains[0];
-  return null;
+  const normalizedItems = items.map((item) => ({
+    item,
+    normalizedTitle: normalizeSpokenName(item.title),
+  }));
+
+  const exact = normalizedItems.find((entry) => entry.normalizedTitle === q);
+  if (exact) return exact.item;
+
+  const contains = normalizedItems.filter((entry) =>
+    entry.normalizedTitle.includes(q),
+  );
+  if (contains.length === 1) return contains[0].item;
+
+  const reverseContains = normalizedItems.filter((entry) =>
+    q.includes(entry.normalizedTitle),
+  );
+  if (reverseContains.length === 1) return reverseContains[0].item;
+
+  const fuzzy = normalizedItems
+    .map((entry) => ({
+      ...entry,
+      score: similarity(q, entry.normalizedTitle),
+    }))
+    .filter((entry) => entry.score >= 0.82)
+    .sort((a, b) => b.score - a.score);
+
+  if (fuzzy.length === 0) return null;
+
+  const best = fuzzy[0];
+  const secondBest = fuzzy[1];
+
+  // Require a clear winner instead of guessing between similar titles.
+  if (secondBest && best.score - secondBest.score < 0.08) {
+    return null;
+  }
+
+  return best.item;
 }
 
 export function newStreamToken(): string {
