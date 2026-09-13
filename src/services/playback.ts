@@ -273,10 +273,22 @@ export function parseSeekSeconds(slotValue: string | undefined, defaultSeconds =
 export function normalizeSpokenName(name: string): string {
   return name
     .toLowerCase()
+
+    // English Alexa phrasing
     .replace(/^(ask|tell)\s+\w+(\s+\w+)?\s+to\s+/i, '')
     .replace(/^(play|start|mix|shuffle)\s+/i, '')
     .replace(/^(the|my)\s+/i, '')
     .replace(/\s+(playlist|album|song|track)$/i, '')
+
+    // German Alexa phrasing
+    .replace(/^(spiele|spiel|starte|mische)\s+/i, '')
+    .replace(/^(den|die|das|meine|meinen|mein)\s+/i, '')
+    .replace(/^(künstler|kuenstler)\s+/i, '')
+    .replace(/^(musik\s+von|etwas\s+von)\s+/i, '')
+    .replace(/\s+(playlist|album|lied|titel|künstler|kuenstler)$/i, '')
+    .replace(/\s+zufällig$/i, '')
+    .replace(/\s+zufaellig$/i, '')
+
     .trim();
 }
 

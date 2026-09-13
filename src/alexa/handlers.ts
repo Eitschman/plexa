@@ -120,7 +120,7 @@ const LaunchRequestHandler: RequestHandler = {
     logAlexaEvent({ type: AlexaEventType.LaunchRequest, summary: summarizeLaunch() });
     const settings = getPublicSettings();
     return speech(
-      `Welcome to ${settings.invocationName}. You can ask me to play a playlist, artist, album, or song.`,
+      `Willkommen bei ${settings.invocationName}. Du kannst mich bitten, eine Playlist, einen Künstler, ein Album oder einen Titel abzuspielen.`,
       false,
     );
   },
@@ -132,7 +132,7 @@ const HelpIntentHandler: RequestHandler = {
   handle: async () => {
     logAlexaEvent({ type: AlexaEventType.HelpIntent, summary: summarizeHelp() });
     return speech(
-      'Try: start my road trip playlist, start Fleetwood Mac, play the album Rumours, or play Dreams by Fleetwood Mac. You can also say loop on, loop off, skip forward 30 seconds, or go back 15 seconds.',
+      'Zum Beispiel: Spiele meine Playlist Autofahrt, spiele Orden Ogan, spiele das Album Final Days oder spiele Gunman. Du kannst außerdem sagen: Wiederholen an, Wiederholen aus, 30 Sekunden vorspringen oder 15 Sekunden zurück.',
       false,
     );
   },
@@ -149,7 +149,7 @@ const CancelAndStopIntentHandler: RequestHandler = {
     clearQueue(userId, deviceId);
     return {
       ...audioStopResponse(),
-      outputSpeech: { type: 'PlainText', text: 'Stopping playback.' },
+      outputSpeech: { type: 'PlainText', text: 'Wiedergabe gestoppt.' },
     };
   },
 };
@@ -162,14 +162,13 @@ const PlayPlaylistIntentHandler: RequestHandler = {
   handle: async (input) => {
     const intent = getIntent(input);
     const slot = intent?.slots?.playlist?.value;
-    const playlistSlot = intent?.slots?.playlist;
 
     if (!slot) {
       logAlexaEvent({
         type: AlexaEventType.PlayPlaylistIntent,
         summary: summarizePlayPrompt('playlist'),
       });
-      return speech('Which playlist would you like to play?', false);
+      return speech('Welche Playlist möchtest du hören?', false);
     }
 
     try {
@@ -183,7 +182,7 @@ const PlayPlaylistIntentHandler: RequestHandler = {
           type: AlexaEventType.PlayPlaylistIntent,
           summary: summarizePlayNotFound('playlist', slot),
         });
-        return speech(`I couldn't find a playlist called ${slot}.`, true);
+        return speech(`Ich konnte keine Playlist mit dem Namen ${slot} finden.`, true);
       }
 
       const tracks = await plexAdapter.getPlaylistTracks(match.ratingKey);
@@ -192,14 +191,17 @@ const PlayPlaylistIntentHandler: RequestHandler = {
           type: AlexaEventType.PlayPlaylistIntent,
           summary: summarizePlayEmpty('playlist', match.title),
         });
-        return speech('That playlist is empty.', true);
+        return speech('Diese Playlist ist leer.', true);
       }
 
       const { userId, deviceId } = getUserContext(input);
       const shuffle = intent?.name === 'ShufflePlaylistIntent';
       const queue = createQueueFromTracks(userId, tracks, { shuffle, deviceId, loop: false });
       const current = getCurrentTrack(queue);
-      const response = playCurrentOrSpeech(current, 'Unable to stream that playlist right now.');
+      const response = playCurrentOrSpeech(
+        current,
+        'Diese Playlist kann momentan nicht wiedergegeben werden.',
+      );
       if (response.outputSpeech) {
         logAlexaEvent({
           type: AlexaEventType.PlayPlaylistIntent,
@@ -217,13 +219,15 @@ const PlayPlaylistIntentHandler: RequestHandler = {
         });
       }
       return response;
-    } catch (err) {
-
+    } catch {
       logAlexaEvent({
         type: AlexaEventType.PlayPlaylistIntent,
         summary: summarizePlexNotConfigured(),
       });
-      return speech('Plex is not configured. Please set it up in the Plexa settings page.', true);
+      return speech(
+        'Plex ist nicht konfiguriert. Bitte richte Plex in den Plexa-Einstellungen ein.',
+        true,
+      );
     }
   },
 };
@@ -241,7 +245,7 @@ const PlayArtistIntentHandler: RequestHandler = {
         type: AlexaEventType.PlayArtistIntent,
         summary: summarizePlayPrompt('artist'),
       });
-      return speech('Which artist?', false);
+      return speech('Welchen Künstler möchtest du hören?', false);
     }
 
     try {
@@ -253,7 +257,7 @@ const PlayArtistIntentHandler: RequestHandler = {
           type: AlexaEventType.PlayArtistIntent,
           summary: summarizePlayNotFound('artist', slot),
         });
-        return speech(`I couldn't find ${slot}.`, true);
+        return speech(`Ich konnte ${slot} nicht finden.`, true);
       }
 
       const tracks = await plexAdapter.getArtistTracks(match.ratingKey);
@@ -262,14 +266,17 @@ const PlayArtistIntentHandler: RequestHandler = {
           type: AlexaEventType.PlayArtistIntent,
           summary: summarizePlayEmpty('artist', match.title),
         });
-        return speech('No tracks found for that artist.', true);
+        return speech('Für diesen Künstler wurden keine Titel gefunden.', true);
       }
 
       const { userId, deviceId } = getUserContext(input);
       const shuffle = intent?.name === 'ShuffleArtistIntent';
       const queue = createQueueFromTracks(userId, tracks, { shuffle, deviceId, loop: false });
       const current = getCurrentTrack(queue);
-      const response = playCurrentOrSpeech(current, 'Unable to stream that artist right now.');
+      const response = playCurrentOrSpeech(
+        current,
+        'Dieser Künstler kann momentan nicht wiedergegeben werden.',
+      );
       if (response.outputSpeech) {
         logAlexaEvent({
           type: AlexaEventType.PlayArtistIntent,
@@ -292,7 +299,7 @@ const PlayArtistIntentHandler: RequestHandler = {
         type: AlexaEventType.PlayArtistIntent,
         summary: summarizePlexNotConfigured(),
       });
-      return speech('Plex is not configured.', true);
+      return speech('Plex ist nicht konfiguriert.', true);
     }
   },
 };
@@ -310,7 +317,7 @@ const PlayAlbumIntentHandler: RequestHandler = {
         type: AlexaEventType.PlayAlbumIntent,
         summary: summarizePlayPrompt('album'),
       });
-      return speech('Which album?', false);
+      return speech('Welches Album möchtest du hören?', false);
     }
 
     try {
@@ -322,7 +329,7 @@ const PlayAlbumIntentHandler: RequestHandler = {
           type: AlexaEventType.PlayAlbumIntent,
           summary: summarizePlayNotFound('album', slot),
         });
-        return speech(`I couldn't find the album ${slot}.`, true);
+        return speech(`Ich konnte das Album ${slot} nicht finden.`, true);
       }
 
       const tracks = await plexAdapter.getAlbumTracks(match.ratingKey);
@@ -331,14 +338,17 @@ const PlayAlbumIntentHandler: RequestHandler = {
           type: AlexaEventType.PlayAlbumIntent,
           summary: summarizePlayEmpty('album', match.title),
         });
-        return speech('That album has no tracks.', true);
+        return speech('Dieses Album enthält keine Titel.', true);
       }
 
       const { userId, deviceId } = getUserContext(input);
       const shuffle = intent?.name === 'ShuffleAlbumIntent';
       const queue = createQueueFromTracks(userId, tracks, { shuffle, deviceId, loop: false });
       const current = getCurrentTrack(queue);
-      const response = playCurrentOrSpeech(current, 'Unable to stream that album right now.');
+      const response = playCurrentOrSpeech(
+        current,
+        'Dieses Album kann momentan nicht wiedergegeben werden.',
+      );
       if (response.outputSpeech) {
         logAlexaEvent({
           type: AlexaEventType.PlayAlbumIntent,
@@ -361,7 +371,7 @@ const PlayAlbumIntentHandler: RequestHandler = {
         type: AlexaEventType.PlayAlbumIntent,
         summary: summarizePlexNotConfigured(),
       });
-      return speech('Plex is not configured.', true);
+      return speech('Plex ist nicht konfiguriert.', true);
     }
   },
 };
@@ -380,7 +390,7 @@ const PlayTrackIntentHandler: RequestHandler = {
         type: AlexaEventType.PlayTrackIntent,
         summary: summarizePlayPrompt('track'),
       });
-      return speech('Which song?', false);
+      return speech('Welchen Titel möchtest du hören?', false);
     }
 
     try {
@@ -399,13 +409,16 @@ const PlayTrackIntentHandler: RequestHandler = {
           type: AlexaEventType.PlayTrackIntent,
           summary: summarizePlayNotFound('track', trackSlot),
         });
-        return speech(`I couldn't find ${trackSlot}.`, true);
+        return speech(`Ich konnte ${trackSlot} nicht finden.`, true);
       }
 
       const { userId, deviceId } = getUserContext(input);
       const queue = createQueueFromTracks(userId, [match], { deviceId, loop: false });
       const current = getCurrentTrack(queue);
-      const response = playCurrentOrSpeech(current, 'Unable to stream that track right now.');
+      const response = playCurrentOrSpeech(
+        current,
+        'Dieser Titel kann momentan nicht wiedergegeben werden.',
+      );
       if (response.outputSpeech) {
         logAlexaEvent({
           type: AlexaEventType.PlayTrackIntent,
@@ -429,7 +442,7 @@ const PlayTrackIntentHandler: RequestHandler = {
         type: AlexaEventType.PlayTrackIntent,
         summary: summarizePlexNotConfigured(),
       });
-      return speech('Plex is not configured.', true);
+      return speech('Plex ist nicht konfiguriert.', true);
     }
   },
 };
@@ -446,13 +459,19 @@ const LoopIntentHandler: RequestHandler = {
     const eventType = loop ? AlexaEventType.LoopOnIntent : AlexaEventType.LoopOffIntent;
     const { userId, deviceId } = getUserContext(input);
     const queue = loadQueue(userId, deviceId);
+
     if (!queue || queue.items.length === 0) {
       logAlexaEvent({ type: eventType, summary: summarizeLoopNoPlayback() });
-      return speech('Nothing is playing right now.', true);
+      return speech('Momentan wird nichts wiedergegeben.', true);
     }
+
     setQueueLoop(queue, loop);
     logAlexaEvent({ type: eventType, summary: summarizeLoop(loop) });
-    return speech(loop ? 'Loop is on.' : 'Loop is off.', true);
+
+    return speech(
+      loop ? 'Wiederholen ist eingeschaltet.' : 'Wiederholen ist ausgeschaltet.',
+      true,
+    );
   },
 };
 
@@ -471,32 +490,51 @@ const SeekIntentHandler: RequestHandler = {
         : name === 'SeekBackwardIntent'
           ? AlexaEventType.SeekBackwardIntent
           : AlexaEventType.StartOverIntent;
+
     const { userId, deviceId } = getUserContext(input);
     const queue = loadQueue(userId, deviceId);
+
     if (!queue) {
       logAlexaEvent({ type: eventType, summary: summarizeSeekNoPlayback() });
-      return speech('Nothing is playing right now.', true);
+      return speech('Momentan wird nichts wiedergegeben.', true);
     }
 
     const { token, offsetInMilliseconds } = getAudioPlayerContext(input);
     const activeToken = token ?? getRequestToken(input);
-    let current = activeToken ? findQueueItemByToken(queue, activeToken) : getCurrentTrack(queue);
-    if (activeToken && current) syncQueueFromToken(queue, activeToken);
-    if (!current) current = getCurrentTrack(queue);
+
+    let current = activeToken
+      ? findQueueItemByToken(queue, activeToken)
+      : getCurrentTrack(queue);
+
+    if (activeToken && current) {
+      syncQueueFromToken(queue, activeToken);
+    }
+
+    if (!current) {
+      current = getCurrentTrack(queue);
+    }
+
     if (!current?.streamUrl) {
       logAlexaEvent({ type: eventType, summary: summarizeSeekNoPlayback() });
-      return speech('Nothing is playing right now.', true);
+      return speech('Momentan wird nichts wiedergegeben.', true);
     }
 
     let offsetMs = offsetInMilliseconds;
+
     if (name === 'AMAZON.StartOverIntent') {
       logAlexaEvent({ type: eventType, summary: summarizeStartOver() });
       offsetMs = 0;
     } else {
       const seconds = parseSeekSeconds(intent?.slots?.seconds?.value);
       const direction = name === 'SeekForwardIntent' ? 'forward' : 'backward';
-      logAlexaEvent({ type: eventType, summary: summarizeSeek(direction, seconds) });
+
+      logAlexaEvent({
+        type: eventType,
+        summary: summarizeSeek(direction, seconds),
+      });
+
       const deltaMs = seconds * 1000;
+
       offsetMs = clampSeekOffset(
         offsetInMilliseconds,
         name === 'SeekForwardIntent' ? deltaMs : -deltaMs,
@@ -504,7 +542,10 @@ const SeekIntentHandler: RequestHandler = {
       );
     }
 
-    return playQueueItem(current, { offsetMs }) ?? speech('Unable to seek right now.', true);
+    return (
+      playQueueItem(current, { offsetMs }) ??
+      speech('Momentan kann nicht gespult werden.', true)
+    );
   },
 };
 
@@ -522,18 +563,21 @@ const AudioPlayerHandler: RequestHandler = {
     if (type === 'AudioPlayer.PlaybackStarted' && queue && eventToken) {
       syncQueueFromToken(queue, eventToken);
       const track = findQueueItemByToken(queue, eventToken);
+
       if (track) {
         logAlexaEvent({
           type: AlexaEventType.PlaybackStarted,
           summary: summarizePlaybackStarted(track.title, track.artist),
         });
       }
+
       return emptyAudioResponse();
     }
 
     if (type === 'AudioPlayer.PlaybackNearlyFinished' && queue) {
       const current = getCurrentTrack(queue);
       const next = getNextTrack(queue);
+
       if (next?.streamUrl && current) {
         return (
           playQueueItem(next, {
@@ -542,17 +586,20 @@ const AudioPlayerHandler: RequestHandler = {
           }) ?? emptyAudioResponse()
         );
       }
+
       return emptyAudioResponse();
     }
 
     if (type === 'AudioPlayer.PlaybackFinished' && queue && eventToken) {
       const track = findQueueItemByToken(queue, eventToken);
+
       if (track) {
         logAlexaEvent({
           type: AlexaEventType.PlaybackFinished,
           summary: summarizePlaybackFinished(track.title, track.artist),
         });
       }
+
       advanceIndexOnPlaybackFinished(queue, eventToken);
       return emptyAudioResponse();
     }
@@ -574,25 +621,31 @@ const PlaybackControllerHandler: RequestHandler = {
 
     if (type === 'PlaybackController.NextCommandIssued' && queue) {
       const next = advanceQueue(queue);
+
       if (next?.streamUrl) {
         logAlexaEvent({
           type: AlexaEventType.NextCommand,
           summary: summarizeTransport('next', next.title),
         });
+
         return playQueueItem(next) ?? emptyAudioResponse();
       }
+
       return emptyAudioResponse();
     }
 
     if (type === 'PlaybackController.PreviousCommandIssued' && queue) {
       const prev = previousTrack(queue);
+
       if (prev?.streamUrl) {
         logAlexaEvent({
           type: AlexaEventType.PreviousCommand,
           summary: summarizeTransport('previous', prev.title),
         });
+
         return playQueueItem(prev) ?? emptyAudioResponse();
       }
+
       return emptyAudioResponse();
     }
 
@@ -601,20 +654,35 @@ const PlaybackControllerHandler: RequestHandler = {
         type: AlexaEventType.PauseCommand,
         summary: summarizeTransport('pause'),
       });
+
       return audioStopResponse();
     }
 
     if (type === 'PlaybackController.PlayCommandIssued' && queue) {
-      let current = token ? findQueueItemByToken(queue, token) : getCurrentTrack(queue);
-      if (token && current) syncQueueFromToken(queue, token);
-      if (!current) current = getCurrentTrack(queue);
+      let current = token
+        ? findQueueItemByToken(queue, token)
+        : getCurrentTrack(queue);
+
+      if (token && current) {
+        syncQueueFromToken(queue, token);
+      }
+
+      if (!current) {
+        current = getCurrentTrack(queue);
+      }
+
       if (current?.streamUrl) {
         logAlexaEvent({
           type: AlexaEventType.PlayCommand,
           summary: summarizeTransport('resume', current.title),
         });
-        return playQueueItem(current, { offsetMs: offsetInMilliseconds }) ?? emptyAudioResponse();
+
+        return (
+          playQueueItem(current, { offsetMs: offsetInMilliseconds }) ??
+          emptyAudioResponse()
+        );
       }
+
       return emptyAudioResponse();
     }
 
@@ -624,8 +692,12 @@ const PlaybackControllerHandler: RequestHandler = {
 
 const TransportIntentHandler: RequestHandler = {
   canHandle: (input) => {
-    if (input.requestEnvelope.request.type !== 'IntentRequest') return false;
+    if (input.requestEnvelope.request.type !== 'IntentRequest') {
+      return false;
+    }
+
     const name = input.requestEnvelope.request.intent.name;
+
     return [
       'AMAZON.PauseIntent',
       'AMAZON.ResumeIntent',
@@ -633,9 +705,11 @@ const TransportIntentHandler: RequestHandler = {
       'AMAZON.PreviousIntent',
     ].includes(name);
   },
+
   handle: async (input) => {
     const intent = getIntent(input);
     const name = intent?.name ?? 'UnknownIntent';
+
     const eventType =
       name === 'AMAZON.PauseIntent'
         ? AlexaEventType.PauseIntent
@@ -644,56 +718,80 @@ const TransportIntentHandler: RequestHandler = {
           : name === 'AMAZON.NextIntent'
             ? AlexaEventType.NextIntent
             : AlexaEventType.PreviousIntent;
+
     const { userId, deviceId } = getUserContext(input);
     const queue = loadQueue(userId, deviceId);
     const { offsetInMilliseconds } = getAudioPlayerContext(input);
 
     if (name === 'AMAZON.NextIntent' && queue) {
       const next = advanceQueue(queue);
+
       if (next?.streamUrl) {
         logAlexaEvent({
           type: eventType,
           summary: summarizeTransport('next', next.title),
         });
-        return playQueueItem(next) ?? speech('Unable to stream right now.', true);
+
+        return (
+          playQueueItem(next) ??
+          speech('Die Wiedergabe ist momentan nicht möglich.', true)
+        );
       }
+
       logAlexaEvent({ type: eventType, summary: summarizeQueueEnd() });
-      return speech('You are at the end of the queue.', true);
+      return speech('Du bist bereits am Ende der Warteschlange.', true);
     }
+
     if (name === 'AMAZON.PreviousIntent' && queue) {
       const prev = previousTrack(queue);
+
       if (prev?.streamUrl) {
         logAlexaEvent({
           type: eventType,
           summary: summarizeTransport('previous', prev.title),
         });
-        return playQueueItem(prev) ?? speech('Unable to stream right now.', true);
+
+        return (
+          playQueueItem(prev) ??
+          speech('Die Wiedergabe ist momentan nicht möglich.', true)
+        );
       }
+
       logAlexaEvent({ type: eventType, summary: summarizeQueueStart() });
-      return speech('You are at the beginning of the queue.', true);
+      return speech('Du bist bereits am Anfang der Warteschlange.', true);
     }
 
     if (name === 'AMAZON.PauseIntent') {
-      logAlexaEvent({ type: eventType, summary: summarizeTransport('pause') });
+      logAlexaEvent({
+        type: eventType,
+        summary: summarizeTransport('pause'),
+      });
+
       return audioStopResponse();
     }
 
     if (name === 'AMAZON.ResumeIntent' && queue) {
       const current = getCurrentTrack(queue);
+
       if (current?.streamUrl) {
         logAlexaEvent({
           type: eventType,
           summary: summarizeTransport('resume', current.title),
         });
+
         return (
           playQueueItem(current, { offsetMs: offsetInMilliseconds }) ??
-          speech('Unable to stream right now.', true)
+          speech('Die Wiedergabe ist momentan nicht möglich.', true)
         );
       }
     }
 
-    logAlexaEvent({ type: eventType, summary: summarizeNothingPlaying() });
-    return speech('Nothing is playing right now.', true);
+    logAlexaEvent({
+      type: eventType,
+      summary: summarizeNothingPlaying(),
+    });
+
+    return speech('Momentan wird nichts wiedergegeben.', true);
   },
 };
 
@@ -702,17 +800,25 @@ const FallbackHandler: RequestHandler = {
   handle: async (input) => {
     const request = input.requestEnvelope.request;
     const intentName =
-      request.type === 'IntentRequest' ? request.intent.name : undefined;
+      request.type === 'IntentRequest'
+        ? request.intent.name
+        : undefined;
+
     logAlexaEvent({
       type: AlexaEventType.Fallback,
       summary: summarizeFallback(intentName),
     });
-    return speech("I didn't understand that. Try asking me to play a playlist, artist, album, or song.", false);
+
+    return speech(
+      'Das habe ich nicht verstanden. Bitte mich zum Beispiel, eine Playlist, einen Künstler, ein Album oder einen Titel abzuspielen.',
+      false,
+    );
   },
 };
 
 export function buildAlexaSkill() {
   const skillId = getAlexaSkillId();
+
   const builder = SkillBuilders.custom()
     .addRequestHandlers(
       LaunchRequestHandler,
@@ -737,8 +843,14 @@ export function buildAlexaSkill() {
   return builder.create();
 }
 
-export function validateApplicationId(applicationId: string | undefined): boolean {
+export function validateApplicationId(
+  applicationId: string | undefined,
+): boolean {
   const expected = getAlexaSkillId();
-  if (!expected) return true;
+
+  if (!expected) {
+    return true;
+  }
+
   return applicationId === expected;
 }

@@ -1,0 +1,194 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "plexa",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NextIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PreviousIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.LoopOnIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.LoopOffIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StartOverIntent",
+          "samples": []
+        },
+        {
+          "name": "SeekForwardIntent",
+          "slots": [
+            {
+              "name": "seconds",
+              "type": "AMAZON.NUMBER"
+            }
+          ],
+          "samples": [
+            "springe {seconds} Sekunden vor",
+            "springe vor",
+            "spule {seconds} Sekunden vor",
+            "spule vor",
+            "gehe {seconds} Sekunden vor"
+          ]
+        },
+        {
+          "name": "SeekBackwardIntent",
+          "slots": [
+            {
+              "name": "seconds",
+              "type": "AMAZON.NUMBER"
+            }
+          ],
+          "samples": [
+            "springe {seconds} Sekunden zurück",
+            "springe zurück",
+            "spule {seconds} Sekunden zurück",
+            "spule zurück",
+            "gehe {seconds} Sekunden zurück"
+          ]
+        },
+        {
+          "name": "PlayPlaylistIntent",
+          "slots": [
+            {
+              "name": "playlist",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "spiele Playlist {playlist}",
+            "starte Playlist {playlist}",
+            "spiele die Playlist {playlist}",
+            "starte die Playlist {playlist}",
+            "spiele meine Playlist {playlist}",
+            "starte meine Playlist {playlist}"
+          ]
+        },
+        {
+          "name": "ShufflePlaylistIntent",
+          "slots": [
+            {
+              "name": "playlist",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "mische Playlist {playlist}",
+            "mische die Playlist {playlist}",
+            "mische meine Playlist {playlist}",
+            "spiele Playlist {playlist} zufällig",
+            "spiele die Playlist {playlist} zufällig"
+          ]
+        },
+        {
+          "name": "PlayArtistIntent",
+          "slots": [
+            {
+              "name": "artist",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "spiele Künstler {artist}",
+            "spiele den Künstler {artist}",
+            "spiele Musik von {artist}",
+            "spiele etwas von {artist}",
+            "spiele {artist}",
+            "starte {artist}"
+          ]
+        },
+        {
+          "name": "ShuffleArtistIntent",
+          "slots": [
+            {
+              "name": "artist",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "mische Künstler {artist}",
+            "mische Musik von {artist}",
+            "spiele {artist} zufällig",
+            "spiele Musik von {artist} zufällig"
+          ]
+        },
+        {
+          "name": "PlayAlbumIntent",
+          "slots": [
+            {
+              "name": "album",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "spiele Album {album}",
+            "spiele das Album {album}",
+            "starte Album {album}",
+            "starte das Album {album}"
+          ]
+        },
+        {
+          "name": "ShuffleAlbumIntent",
+          "slots": [
+            {
+              "name": "album",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "mische Album {album}",
+            "mische das Album {album}",
+            "spiele Album {album} zufällig",
+            "spiele das Album {album} zufällig"
+          ]
+        },
+        {
+          "name": "PlayTrackIntent",
+          "slots": [
+            {
+              "name": "track",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "spiele Lied {track}",
+            "spiele das Lied {track}",
+            "spiele Titel {track}",
+            "spiele den Titel {track}",
+            "starte Lied {track}",
+            "starte Titel {track}",
+            "spiele {track}"
+          ]
+        }
+      ]
+    }
+  }
+}
