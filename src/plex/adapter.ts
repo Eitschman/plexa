@@ -52,6 +52,24 @@ export interface PlexConnectionInfo {
   platform?: string;
 }
 
+export interface PlexMediaPart {
+  key: string;
+  file?: string;
+  mediaIndex: number;
+  partIndex: number;
+  container?: string;
+  audioCodec?: string;
+  durationMs?: number;
+}
+
+export interface AudioTranscodeOptions {
+  sessionId: string;
+  mediaIndex?: number;
+  partIndex?: number;
+  bitrateKbps?: number;
+  offsetSec?: number;
+}
+
 export interface PageOptions {
   start?: number;
   size?: number;
@@ -439,25 +457,14 @@ export class PlexAdapter {
     const server = this.ensureConnected();
     const { start, size } = clampPageOptions(options);
     const window = size + 1;
-    let items: Playlist[];
-    try {
-      items = await fetchItems(
-        server,
-        '/playlists?playlistType=audio',
-        undefined,
-        Playlist,
-        server,
-        { containerStart: start, containerSize: window, maxResults: window },
-      );
-    } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'B',location:'adapter.ts:listPlaylistsPage:error',message:'Plex playlist fetch failed',data:{error:err instanceof Error?err.message:String(err),start,size},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      throw err;
-    }
-    // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'B',location:'adapter.ts:listPlaylistsPage:result',message:'Plex playlist fetch result',data:{start,size,rawCount:items.length,titles:items.map((p)=>p.title??'Unknown')},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    const items = await fetchItems(
+      server,
+      '/playlists?playlistType=audio',
+      undefined,
+      Playlist,
+      server,
+      { containerStart: start, containerSize: window, maxResults: window },
+    );
     return toPageResult(items.map(mapPlaylist), start, size);
   }
 
@@ -603,13 +610,23 @@ export class PlexAdapter {
     }
   }
 
-  async getMediaParts(ratingKey: string): Promise<{ key: string; file?: string }[]> {
+  async getMediaParts(ratingKey: string): Promise<PlexMediaPart[]> {
     const server = this.ensureConnected();
     const track = await fetchItem(server, metadataPath(ratingKey), undefined, Track);
-    const parts: { key: string; file?: string }[] = [];
-    for (const media of track.media ?? []) {
-      for (const part of media.parts ?? []) {
-        if (part.key) parts.push({ key: part.key, file: part.file });
+    const parts: PlexMediaPart[] = [];
+    for (const [mediaIndex, media] of (track.media ?? []).entries()) {
+      for (const [partIndex, part] of (media.parts ?? []).entries()) {
+        if (part.key) {
+          parts.push({
+            key: part.key,
+            file: part.file,
+            mediaIndex,
+            partIndex,
+            container: part.container,
+            audioCodec: media.audioCodec,
+            durationMs: part.duration ?? media.duration ?? track.duration,
+          });
+        }
       }
     }
     return parts;
@@ -620,21 +637,76 @@ export class PlexAdapter {
     return `${baseUrl}${partKey}?X-Plex-Token=${encodeURIComponent(token)}`;
   }
 
-  buildTranscodeUrl(ratingKey: string, sessionId: string): string {
-    const { baseUrl, token } = this.getCredentials();
-    const path = `/library/metadata/${ratingKey}`;
-    const params = new URLSearchParams({
-      path,
-      directStreamAudio: '1',
-      protocol: 'hls',
-      directPlay: '1',
-      hasMDE: '1',
+  private buildTranscodeParams(
+    ratingKey: string,
+    options: AudioTranscodeOptions,
+  ): URLSearchParams {
+    const { token } = this.getCredentials();
+    return new URLSearchParams({
+      path: metadataPath(ratingKey),
+      mediaIndex: String(options.mediaIndex ?? 0),
+      partIndex: String(options.partIndex ?? 0),
+      offset: String(options.offsetSec ?? 0),
+      session: options.sessionId,
       'X-Plex-Token': token,
       'X-Plex-Client-Identifier': 'plexa',
+      'X-Plex-Product': 'Plexa',
+      'X-Plex-Version': '0.3.0',
+      'X-Plex-Platform': 'Web',
+      'X-Plex-Platform-Version': '1.0',
       'X-Plex-Device': 'Plexa',
-      'X-Plex-Session-Identifier': sessionId,
+      'X-Plex-Device-Name': 'Plexa',
+      'X-Plex-Session-Identifier': options.sessionId,
     });
+  }
+
+  buildAudioTranscodeUrl(ratingKey: string, options: AudioTranscodeOptions): string {
+    const { baseUrl } = this.getCredentials();
+    const bitrate = String(options.bitrateKbps ?? 320);
+    const params = this.buildTranscodeParams(ratingKey, options);
+    params.set('protocol', 'http');
+    params.set('directPlay', '0');
+    params.set('directStream', '0');
+    params.set('audioCodec', 'mp3');
+    params.set('musicBitrate', bitrate);
+    params.set('maxAudioBitrate', bitrate);
+    params.set(
+      'X-Plex-Client-Profile-Extra',
+      'add-transcode-target(type=musicProfile&context=streaming&protocol=http&container=mp3&audioCodec=mp3)',
+    );
+    return `${baseUrl}/music/:/transcode/universal/start.mp3?${params.toString()}`;
+  }
+
+  buildTranscodeUrl(
+    ratingKey: string,
+    sessionId: string,
+    mediaIndex = 0,
+    partIndex = 0,
+  ): string {
+    const { baseUrl } = this.getCredentials();
+    const params = this.buildTranscodeParams(ratingKey, {
+      sessionId,
+      mediaIndex,
+      partIndex,
+    });
+    params.set('directStreamAudio', '1');
+    params.set('protocol', 'hls');
+    params.set('directPlay', '0');
+    params.set('hasMDE', '1');
+    params.set(
+      'X-Plex-Client-Profile-Extra',
+      'add-transcode-target(type=musicProfile&context=streaming&protocol=hls&container=mpegts&audioCodec=aac,mp3)',
+    );
     return `${baseUrl}/music/:/transcode/universal/start.m3u8?${params.toString()}`;
+  }
+
+  buildTranscodeStopUrl(sessionId: string): string {
+    const { baseUrl, token } = this.getCredentials();
+    const params = new URLSearchParams({
+      session: sessionId,
+      'X-Plex-Token': token,
+    });
+    return `${baseUrl}/video/:/transcode/universal/stop?${params.toString()}`;
   }
 
   buildArtworkUrl(thumbPath: string): string {

@@ -4,6 +4,7 @@ import {
   SkillBuilders,
 } from 'ask-sdk-core';
 import type { Response as SkillResponse } from 'ask-sdk-model';
+
 import {
   AlexaEventType,
   logAlexaEvent,
@@ -25,6 +26,7 @@ import {
   summarizeQueueStart,
   summarizeSeek,
   summarizeSeekNoPlayback,
+  summarizeSeekTo,
   summarizeStartOver,
   summarizeStop,
   summarizeTransport,
@@ -41,6 +43,7 @@ import {
   getNextTrack,
   loadQueue,
   normalizeSpokenName,
+  parseSeekPosition,
   parseSeekSeconds,
   previousTrack,
   clearQueue,
@@ -132,7 +135,7 @@ const HelpIntentHandler: RequestHandler = {
   handle: async () => {
     logAlexaEvent({ type: AlexaEventType.HelpIntent, summary: summarizeHelp() });
     return speech(
-      'Try: start my road trip playlist, start Fleetwood Mac, play the album Rumours, or play Dreams by Fleetwood Mac. You can also say loop on, loop off, skip forward 30 seconds, or go back 15 seconds.',
+      'Try: start my road trip playlist, start Fleetwood Mac, play the album Rumours, or play Dreams by Fleetwood Mac. You can also say loop on, skip forward 30 seconds, go back 15 seconds, or skip to two minutes.',
       false,
     );
   },
@@ -162,10 +165,6 @@ const PlayPlaylistIntentHandler: RequestHandler = {
   handle: async (input) => {
     const intent = getIntent(input);
     const slot = intent?.slots?.playlist?.value;
-    const playlistSlot = intent?.slots?.playlist;
-    // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,E',location:'handlers.ts:PlayPlaylistIntent:slot',message:'Alexa playlist slot received',data:{intentName:intent?.name,slotValue:slot??null,slotResolutions:playlistSlot?.resolutions?.resolutionsPerAuthority??null,requestType:input.requestEnvelope.request.type},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!slot) {
       logAlexaEvent({
         type: AlexaEventType.PlayPlaylistIntent,
@@ -177,13 +176,7 @@ const PlayPlaylistIntentHandler: RequestHandler = {
     try {
       await ensurePlex();
       const playlists = await plexAdapter.listPlaylists();
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'B',location:'handlers.ts:PlayPlaylistIntent:plex',message:'Plex playlists loaded',data:{playlistCount:playlists.length,playlistTitles:playlists.map((p)=>p.title),playlistKeys:playlists.map((p)=>p.ratingKey)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const match = bestMatch(slot, playlists);
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,B,C',location:'handlers.ts:PlayPlaylistIntent:match',message:'Playlist match result',data:{slotValue:slot,matchedTitle:match?.title??null,matchedKey:match?.ratingKey??null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (!match) {
         logAlexaEvent({
           type: AlexaEventType.PlayPlaylistIntent,
@@ -223,10 +216,7 @@ const PlayPlaylistIntentHandler: RequestHandler = {
         });
       }
       return response;
-    } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'pre-fix',hypothesisId:'D',location:'handlers.ts:PlayPlaylistIntent:error',message:'PlayPlaylistIntent failed',data:{error:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+    } catch {
       logAlexaEvent({
         type: AlexaEventType.PlayPlaylistIntent,
         summary: summarizePlexNotConfigured(),
@@ -401,7 +391,7 @@ const PlayTrackIntentHandler: RequestHandler = {
           (t) => t.artist?.toLowerCase().includes(artistNorm) ?? false,
         );
       }
-      const match = bestMatch(trackSlot, tracks) ?? tracks[0];
+      const match = bestMatch(trackSlot, tracks);
       if (!match) {
         logAlexaEvent({
           type: AlexaEventType.PlayTrackIntent,
@@ -469,6 +459,7 @@ const SeekIntentHandler: RequestHandler = {
     input.requestEnvelope.request.type === 'IntentRequest' &&
     (input.requestEnvelope.request.intent.name === 'SeekForwardIntent' ||
       input.requestEnvelope.request.intent.name === 'SeekBackwardIntent' ||
+      input.requestEnvelope.request.intent.name === 'SeekToIntent' ||
       input.requestEnvelope.request.intent.name === 'AMAZON.StartOverIntent'),
   handle: async (input) => {
     const intent = getIntent(input);
@@ -478,7 +469,9 @@ const SeekIntentHandler: RequestHandler = {
         ? AlexaEventType.SeekForwardIntent
         : name === 'SeekBackwardIntent'
           ? AlexaEventType.SeekBackwardIntent
-          : AlexaEventType.StartOverIntent;
+          : name === 'SeekToIntent'
+            ? AlexaEventType.SeekToIntent
+            : AlexaEventType.StartOverIntent;
     const { userId, deviceId } = getUserContext(input);
     const queue = loadQueue(userId, deviceId);
     if (!queue) {
@@ -496,10 +489,46 @@ const SeekIntentHandler: RequestHandler = {
       return speech('Nothing is playing right now.', true);
     }
 
+    if (
+      (name === 'SeekBackwardIntent' || name === 'SeekForwardIntent') &&
+      !intent?.slots?.seconds?.value
+    ) {
+      logAlexaEvent({
+        type: AlexaEventType.Fallback,
+        summary: summarizeFallback(name),
+      });
+      return speech(
+        'To skip within a song, say go back 30 seconds or skip forward 30 seconds. To play a song, say play song and the name.',
+        false,
+      );
+    }
+    if (
+      name === 'SeekToIntent' &&
+      !intent?.slots?.minutes?.value &&
+      !intent?.slots?.seconds?.value
+    ) {
+      logAlexaEvent({
+        type: AlexaEventType.Fallback,
+        summary: summarizeFallback(name),
+      });
+      return speech(
+        'To jump within a song, say skip to two minutes or jump to one minute 30 seconds.',
+        false,
+      );
+    }
+
     let offsetMs = offsetInMilliseconds;
     if (name === 'AMAZON.StartOverIntent') {
       logAlexaEvent({ type: eventType, summary: summarizeStartOver() });
       offsetMs = 0;
+    } else if (name === 'SeekToIntent') {
+      offsetMs =
+        parseSeekPosition(
+          intent?.slots?.minutes?.value,
+          intent?.slots?.seconds?.value,
+          current.durationMs,
+        ) ?? 0;
+      logAlexaEvent({ type: eventType, summary: summarizeSeekTo(offsetMs) });
     } else {
       const seconds = parseSeekSeconds(intent?.slots?.seconds?.value);
       const direction = name === 'SeekForwardIntent' ? 'forward' : 'backward';

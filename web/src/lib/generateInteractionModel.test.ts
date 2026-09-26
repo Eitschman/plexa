@@ -23,6 +23,7 @@ describe('generateInteractionModel', () => {
       (intent) => (intent as { name: string }).name,
     );
     expect(names).toContain('PlayPlaylistIntent');
+    expect(names).toContain('SeekToIntent');
   });
 
   it('validates invocation names', () => {

@@ -15,6 +15,7 @@ export interface QueueItem {
   durationMs?: number;
   thumb?: string;
   streamUrl?: string;
+  streamUrlAlexa?: string;
   artUrl?: string;
   /** Opaque Alexa AudioPlayer stream token for this queue occurrence. */
   streamToken: string;
@@ -49,6 +50,8 @@ function shuffleArray<T>(arr: T[]): T[] {
 function normalizeQueueItem(item: QueueItem): QueueItem {
   return {
     ...item,
+    streamUrlAlexa:
+      item.streamUrlAlexa ?? createSignedMediaPath(item.ratingKey, 'audio', undefined, 'alexa'),
     streamToken: item.streamToken || newStreamToken(),
   };
 }
@@ -61,7 +64,8 @@ function toQueueItem(track: PlexTrackSummary): QueueItem {
     album: track.album,
     durationMs: track.durationMs,
     thumb: track.thumb,
-    streamUrl: createSignedMediaPath(track.ratingKey, 'audio'),
+    streamUrl: createSignedMediaPath(track.ratingKey, 'audio', undefined, 'web'),
+    streamUrlAlexa: createSignedMediaPath(track.ratingKey, 'audio', undefined, 'alexa'),
     artUrl: artUrlForTrack(track.ratingKey, track.thumb),
     streamToken: newStreamToken(),
   };
@@ -270,6 +274,25 @@ export function parseSeekSeconds(slotValue: string | undefined, defaultSeconds =
   return parsed;
 }
 
+export function parseSeekPosition(
+  minutesValue: string | undefined,
+  secondsValue: string | undefined,
+  durationMs?: number,
+): number | null {
+  if (!minutesValue && !secondsValue) return null;
+  const minutes = minutesValue ? Number.parseInt(minutesValue, 10) : 0;
+  const seconds = secondsValue ? Number.parseInt(secondsValue, 10) : 0;
+  if (
+    !Number.isFinite(minutes) ||
+    !Number.isFinite(seconds) ||
+    minutes < 0 ||
+    seconds < 0
+  ) {
+    return null;
+  }
+  return clampSeekOffset(0, (minutes * 60 + seconds) * 1000, durationMs);
+}
+
 export function normalizeSpokenName(name: string): string {
   return name
     .toLowerCase()
@@ -282,16 +305,10 @@ export function normalizeSpokenName(name: string): string {
 
 export function bestMatch<T extends { title: string }>(query: string, items: T[]): T | null {
   const q = normalizeSpokenName(query);
-  // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,C,E',location:'playback.ts:bestMatch:entry',message:'bestMatch input',data:{queryRaw:query,queryNormalized:q,queryCharCodes:[...query].map((c)=>c.charCodeAt(0)),itemsCount:items.length,itemTitles:items.map((i)=>i.title)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (!q) return null;
   const exact = items.find((i) => i.title.toLowerCase() === q);
   const contains = items.filter((i) => i.title.toLowerCase().includes(q));
   const reverseContains = items.filter((i) => q.includes(i.title.toLowerCase()));
-  // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/960788c3-6ede-484a-924c-4c7eaceb0a29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'927d1d'},body:JSON.stringify({sessionId:'927d1d',runId:'post-fix',hypothesisId:'A,C',location:'playback.ts:bestMatch:branches',message:'bestMatch branch results',data:{exactTitle:exact?.title??null,containsCount:contains.length,containsTitles:contains.map((i)=>i.title),reverseContainsCount:reverseContains.length,reverseContainsTitles:reverseContains.map((i)=>i.title)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (exact) return exact;
   if (contains.length === 1) return contains[0];
   if (reverseContains.length === 1) return reverseContains[0];

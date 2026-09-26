@@ -6,6 +6,7 @@ import {
   toPublicMediaUrl,
   verifySignedToken,
   artUrlForTrack,
+  resolveAudioDelivery,
   stripPlexTokenFromUrlForTests,
   resolveManifestUriForTests,
 } from '../src/media/gateway.js';
@@ -31,6 +32,9 @@ vi.mock('../src/plex/adapter.js', async () => {
       buildArtworkUrl: vi.fn(),
       getMediaParts: vi.fn(),
       buildDirectStreamUrl: vi.fn(),
+      buildAudioTranscodeUrl: vi.fn(),
+      buildTranscodeUrl: vi.fn(),
+      buildTranscodeStopUrl: vi.fn(),
     },
   };
 });
@@ -239,6 +243,83 @@ describe('signed media urls', () => {
   });
 });
 
+describe('audio delivery compatibility', () => {
+  beforeEach(() => {
+    vi.mocked(plexAdapter.getMediaParts).mockReset();
+    vi.mocked(plexAdapter.buildDirectStreamUrl).mockReset();
+    vi.mocked(plexAdapter.buildAudioTranscodeUrl).mockReset();
+    vi.mocked(plexAdapter.buildTranscodeUrl).mockReset();
+    vi.mocked(plexAdapter.buildTranscodeStopUrl).mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ['audio/flac', undefined],
+    ['application/octet-stream', 'flac'],
+  ])('direct-plays FLAC on web for %s', async (contentType, container) => {
+    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{
+      key: '/part/flac',
+      mediaIndex: 1,
+      partIndex: 2,
+      container,
+      audioCodec: 'flac',
+    }]);
+    vi.mocked(plexAdapter.buildDirectStreamUrl).mockReturnValue('https://plex/part/flac');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': contentType }),
+    }));
+
+    await expect(resolveAudioDelivery('42', 'web')).resolves.toEqual({
+      url: 'https://plex/part/flac',
+      mode: 'direct',
+    });
+    expect(plexAdapter.buildAudioTranscodeUrl).not.toHaveBeenCalled();
+  });
+
+  it('transcodes the same FLAC part to MP3 for Alexa', async () => {
+    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{
+      key: '/part/flac',
+      mediaIndex: 1,
+      partIndex: 2,
+      container: 'flac',
+      audioCodec: 'flac',
+      durationMs: 180000,
+    }]);
+    vi.mocked(plexAdapter.buildDirectStreamUrl).mockReturnValue('https://plex/part/flac');
+    vi.mocked(plexAdapter.buildAudioTranscodeUrl).mockReturnValue('https://plex/start.mp3');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'audio/flac' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(resolveAudioDelivery('42', 'alexa')).resolves.toEqual({
+      url: 'https://plex/start.mp3',
+      mode: 'transcode',
+      sessionId: expect.any(String),
+      ratingKey: '42',
+      mediaIndex: 1,
+      partIndex: 2,
+      bitrateKbps: 320,
+      durationMs: 180000,
+    });
+    expect(plexAdapter.buildAudioTranscodeUrl).toHaveBeenCalledWith('42', {
+      sessionId: expect.any(String),
+      mediaIndex: 1,
+      partIndex: 2,
+      bitrateKbps: 320,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('https://plex/part/flac', { method: 'HEAD' });
+  });
+});
+
 describe('media proxy reconnect', () => {
   beforeEach(() => {
     process.env.PUBLIC_URL = 'https://example.com';
@@ -252,13 +333,20 @@ describe('media proxy reconnect', () => {
     vi.mocked(requirePlexConnected).mockReset();
     vi.mocked(plexAdapter.getMediaParts).mockReset();
     vi.mocked(plexAdapter.buildDirectStreamUrl).mockReset();
+    vi.mocked(plexAdapter.buildAudioTranscodeUrl).mockReset();
+    vi.mocked(plexAdapter.buildTranscodeUrl).mockReset();
+    vi.mocked(plexAdapter.buildTranscodeStopUrl).mockReset();
   });
 
   it('reconnects Plex before proxying audio', async () => {
     const path = createSignedMediaPath('12345', 'audio');
     const token = path.replace(/^\/media\//, '');
 
-    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{ key: '/part/1' }]);
+    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{
+      key: '/part/1',
+      mediaIndex: 0,
+      partIndex: 0,
+    }]);
     vi.mocked(plexAdapter.buildDirectStreamUrl).mockReturnValue('https://plex.example.com/part/1');
 
     const body = new ReadableStream<Uint8Array>({
@@ -317,6 +405,338 @@ describe('media proxy reconnect', () => {
     expect(requirePlexConnected).toHaveBeenCalled();
     expect(plexAdapter.getMediaParts).toHaveBeenCalledWith('12345');
     expect(state.statusCode).toBe(200);
+  });
+
+  it('reports a finite length and byte ranges for an MP3 transcode', async () => {
+    const path = createSignedMediaPath('42', 'audio', undefined, 'alexa');
+    const token = path.replace(/^\/media\//, '');
+    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{
+      key: '/part/flac',
+      mediaIndex: 0,
+      partIndex: 0,
+      container: 'flac',
+      audioCodec: 'flac',
+      durationMs: 1000,
+    }]);
+    vi.mocked(plexAdapter.buildDirectStreamUrl).mockReturnValue('https://plex/part/flac');
+    vi.mocked(plexAdapter.buildAudioTranscodeUrl).mockReturnValue('https://plex/start.mp3');
+    vi.mocked(plexAdapter.buildTranscodeStopUrl).mockReturnValue('https://plex/stop');
+
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([0x49, 0x44, 0x33]));
+        controller.close();
+      },
+    });
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith('/part/flac')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'audio/flac' }),
+        });
+      }
+      if (url.endsWith('/start.mp3')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'audio/mpeg' }),
+          body,
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req = {
+      params: { token },
+      method: 'GET',
+      headers: {},
+      on() {},
+      off() {},
+    } as unknown as import('express').Request;
+    const headers: Record<string, string> = {};
+    const state = { statusCode: 200, writableEnded: false, bytesWritten: 0 };
+    const res = {
+      status(code: number) {
+        state.statusCode = code;
+        return this;
+      },
+      setHeader(key: string, value: string) {
+        headers[key.toLowerCase()] = value;
+        return this;
+      },
+      end() {
+        state.writableEnded = true;
+        return this;
+      },
+      write(chunk: Uint8Array) {
+        state.bytesWritten += chunk.byteLength;
+        return true;
+      },
+    } as unknown as import('express').Response;
+
+    const { handleMediaRequest } = await import('../src/media/gateway.js');
+    await handleMediaRequest(req, res);
+
+    expect(headers['content-type']).toBe('audio/mpeg');
+    expect(headers['content-length']).toBe('40000');
+    expect(headers['accept-ranges']).toBe('bytes');
+    expect(state.statusCode).toBe(200);
+    expect(state.bytesWritten).toBe(40000);
+    expect(plexAdapter.buildTranscodeStopUrl).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it('honors the end of AppleCoreMedia byte probe ranges', async () => {
+    const path = createSignedMediaPath('42', 'audio', undefined, 'alexa');
+    const token = path.replace(/^\/media\//, '');
+    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{
+      key: '/part/flac',
+      mediaIndex: 0,
+      partIndex: 0,
+      container: 'flac',
+      audioCodec: 'flac',
+      durationMs: 1000,
+    }]);
+    vi.mocked(plexAdapter.buildDirectStreamUrl).mockReturnValue('https://plex/part/flac');
+    vi.mocked(plexAdapter.buildAudioTranscodeUrl).mockReturnValue('https://plex/start.mp3');
+    vi.mocked(plexAdapter.buildTranscodeStopUrl).mockReturnValue('https://plex/stop');
+
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([0x49, 0x44, 0x33]));
+        controller.close();
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith('/part/flac')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'audio/flac' }),
+        });
+      }
+      if (url.endsWith('/start.mp3')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'audio/mpeg' }),
+          body,
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200 });
+    }));
+
+    const req = {
+      params: { token },
+      method: 'GET',
+      headers: { range: 'bytes=0-1' },
+      on() {},
+      off() {},
+    } as unknown as import('express').Request;
+    const headers: Record<string, string> = {};
+    const state = { statusCode: 200, bytesWritten: 0 };
+    const res = {
+      status(code: number) {
+        state.statusCode = code;
+        return this;
+      },
+      setHeader(key: string, value: string) {
+        headers[key.toLowerCase()] = value;
+        return this;
+      },
+      end() {
+        return this;
+      },
+      write(chunk: Uint8Array) {
+        state.bytesWritten += chunk.byteLength;
+        return true;
+      },
+    } as unknown as import('express').Response;
+
+    const { handleMediaRequest } = await import('../src/media/gateway.js');
+    await handleMediaRequest(req, res);
+
+    expect(state.statusCode).toBe(206);
+    expect(headers['content-length']).toBe('2');
+    expect(headers['content-range']).toBe('bytes 0-1/40000');
+    expect(state.bytesWritten).toBe(2);
+    expect(plexAdapter.buildAudioTranscodeUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it('translates byte ranges into Plex transcode time offsets', async () => {
+    const path = createSignedMediaPath('42', 'audio', undefined, 'alexa');
+    const token = path.replace(/^\/media\//, '');
+    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{
+      key: '/part/flac',
+      mediaIndex: 1,
+      partIndex: 2,
+      container: 'flac',
+      audioCodec: 'flac',
+      durationMs: 60000,
+    }]);
+    vi.mocked(plexAdapter.buildDirectStreamUrl).mockReturnValue('https://plex/part/flac');
+    vi.mocked(plexAdapter.buildAudioTranscodeUrl).mockReturnValue('https://plex/start.mp3');
+    vi.mocked(plexAdapter.buildTranscodeStopUrl).mockReturnValue('https://plex/stop');
+
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([0x49, 0x44, 0x33]));
+        controller.close();
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(
+      (url: string) => {
+        if (url.endsWith('/part/flac')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'audio/flac' }),
+          });
+        }
+        if (url.endsWith('/start.mp3')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'audio/mpeg' }),
+            body,
+          });
+        }
+        return Promise.resolve({ ok: true, status: 200 });
+      },
+    ));
+
+    const req = {
+      params: { token },
+      method: 'GET',
+      headers: { range: 'bytes=1200000-' },
+      on() {},
+      off() {},
+    } as unknown as import('express').Request;
+    const headers: Record<string, string> = {};
+    const state = { statusCode: 200, bytesWritten: 0 };
+    const res = {
+      status(code: number) {
+        state.statusCode = code;
+        return this;
+      },
+      setHeader(key: string, value: string) {
+        headers[key.toLowerCase()] = value;
+        return this;
+      },
+      end() {
+        return this;
+      },
+      write(chunk: Uint8Array) {
+        state.bytesWritten += chunk.byteLength;
+        return true;
+      },
+    } as unknown as import('express').Response;
+
+    const { handleMediaRequest } = await import('../src/media/gateway.js');
+    await handleMediaRequest(req, res);
+
+    expect(state.statusCode).toBe(206);
+    expect(headers['content-range']).toBe('bytes 1200000-2399999/2400000');
+    expect(headers['content-length']).toBe('1200000');
+    expect(headers['accept-ranges']).toBe('bytes');
+    expect(state.bytesWritten).toBe(1200000);
+    expect(plexAdapter.buildAudioTranscodeUrl).toHaveBeenLastCalledWith('42', {
+      sessionId: expect.any(String),
+      mediaIndex: 1,
+      partIndex: 2,
+      bitrateKbps: 320,
+      offsetSec: 30,
+    });
+  });
+
+  it('falls back to HLS when the MP3 transcode GET fails', async () => {
+    const path = createSignedMediaPath('42', 'audio', undefined, 'alexa');
+    const token = path.replace(/^\/media\//, '');
+    vi.mocked(plexAdapter.getMediaParts).mockResolvedValue([{
+      key: '/part/flac',
+      mediaIndex: 0,
+      partIndex: 0,
+      container: 'flac',
+      audioCodec: 'flac',
+      durationMs: 1000,
+    }]);
+    vi.mocked(plexAdapter.buildDirectStreamUrl).mockReturnValue('https://plex/part/flac');
+    vi.mocked(plexAdapter.buildAudioTranscodeUrl).mockReturnValue('https://plex/start.mp3');
+    vi.mocked(plexAdapter.buildTranscodeUrl).mockReturnValue('https://plex/start.m3u8');
+    vi.mocked(plexAdapter.buildTranscodeStopUrl).mockReturnValue('https://plex/stop');
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith('/part/flac')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'audio/flac' }),
+        });
+      }
+      if (url.endsWith('/start.mp3')) {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          body: null,
+          text: () => Promise.resolve('<html>Bad Request</html>'),
+        });
+      }
+      if (url.endsWith('/start.m3u8')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve('#EXTM3U\nsegment.ts'),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200 });
+    }));
+
+    const req = {
+      params: { token },
+      method: 'GET',
+      headers: { range: 'bytes=0-1' },
+      on() {},
+      off() {},
+    } as unknown as import('express').Request;
+    const headers: Record<string, string> = {};
+    const state = { statusCode: 200, body: '' };
+    const res = {
+      headersSent: false,
+      status(code: number) {
+        state.statusCode = code;
+        return this;
+      },
+      setHeader(key: string, value: string) {
+        headers[key.toLowerCase()] = value;
+        return this;
+      },
+      type() {
+        return this;
+      },
+      send(body: string) {
+        state.body = body;
+        return this;
+      },
+      end() {
+        return this;
+      },
+    } as unknown as import('express').Response;
+
+    const { handleMediaRequest } = await import('../src/media/gateway.js');
+    await handleMediaRequest(req, res);
+
+    expect(state.statusCode).toBe(200);
+    expect(headers['content-type']).toBe('application/vnd.apple.mpegurl');
+    expect(state.body).toContain('/media/seg/');
+    expect(plexAdapter.buildTranscodeUrl).toHaveBeenCalledWith(
+      '42',
+      expect.any(String),
+      0,
+      0,
+    );
   });
 
   it('returns 503 when Plex is not configured', async () => {
