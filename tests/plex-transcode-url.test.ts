@@ -35,7 +35,7 @@ describe('Plex audio transcode URLs', () => {
       'X-Plex-Session-Identifier': 'session-123',
       'X-Plex-Client-Identifier': 'plexa',
       'X-Plex-Product': 'Plexa',
-      'X-Plex-Version': '0.2.0',
+      'X-Plex-Version': '0.3.0',
       'X-Plex-Platform': 'Web',
       'X-Plex-Platform-Version': '1.0',
       'X-Plex-Device': 'Plexa',

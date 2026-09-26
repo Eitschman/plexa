@@ -110,7 +110,7 @@ docker compose -f compose.image.yaml up -d
 Pin a specific version in `.env` or your shell:
 
 ```bash
-PLEXA_IMAGE=ghcr.io/rupisaini123/plexa:0.2.0
+PLEXA_IMAGE=ghcr.io/rupisaini123/plexa:0.3.0
 ```
 
 See [Environment variables](#environment-variables) for all supported options.
