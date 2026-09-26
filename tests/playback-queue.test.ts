@@ -9,6 +9,7 @@ import {
   getNextTrack,
   getPreviousTrack,
   loadQueue,
+  parseSeekPosition,
   parseSeekSeconds,
   previousTrack,
   removeQueueItem,
@@ -150,6 +151,14 @@ describe('playback queue', () => {
     expect(parseSeekSeconds('15')).toBe(15);
     expect(parseSeekSeconds('abc')).toBe(30);
     expect(parseSeekSeconds('-5')).toBe(30);
+  });
+
+  it('parses absolute seek positions and clamps them to track duration', () => {
+    expect(parseSeekPosition('2', undefined)).toBe(120000);
+    expect(parseSeekPosition(undefined, '45')).toBe(45000);
+    expect(parseSeekPosition('1', '30')).toBe(90000);
+    expect(parseSeekPosition(undefined, undefined)).toBeNull();
+    expect(parseSeekPosition('5', '0', 180000)).toBe(180000);
   });
 
   it('removes a track before the current index', () => {

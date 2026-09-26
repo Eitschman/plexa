@@ -5,6 +5,7 @@ import {
   summarizePlayNotFound,
   summarizePlaySuccess,
   summarizeSeek,
+  summarizeSeekTo,
   summarizeTransport,
 } from '../src/alexa/eventLog.js';
 
@@ -40,6 +41,10 @@ describe('eventLog summaries', () => {
 
   it('summarizes seek forward with seconds', () => {
     expect(summarizeSeek('forward', 30)).toBe('Skipped forward 30 seconds');
+  });
+
+  it('summarizes an absolute seek position', () => {
+    expect(summarizeSeekTo(125000)).toBe('Jumped to 2:05');
   });
 
   it('summarizes loop state', () => {

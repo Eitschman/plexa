@@ -20,7 +20,7 @@ You can also download a pre-filled interaction model from the **Alexa setup chec
 - **Audio Player:** Required. Plexa sends `AudioPlayer.Play` directives for music playback. Enable it under **Build → Interfaces** in the Developer Console.
 - **No dual SearchQuery slots:** Utterances like `play {track} by {artist}` with two `AMAZON.SearchQuery` slots fail model build. Use one track slot for the full phrase instead (e.g. *"Summer Nights by Sample Artist"*).
 - **Built-in intents:** Pause, resume, next, previous, stop, loop on/off, and start over are provided when Audio Player is enabled.
-- **Custom seek intents:** `SeekForwardIntent` and `SeekBackwardIntent` require the invocation name (e.g. *ask plexa to skip forward 30 seconds*).
+- **Custom seek intents:** `SeekForwardIntent`, `SeekBackwardIntent`, and `SeekToIntent` require the invocation name (e.g. *ask plexa to skip forward 30 seconds* or *ask plexa to skip to 2 minutes*). After changing these intents, import or download the current interaction model and rebuild it in the Developer Console.
 - **Collision-safe verbs:** Prefer **start** over *play* and **mix** over *shuffle* for playlists and artists to avoid Amazon Music intercepting the utterance.
 
 ## Security

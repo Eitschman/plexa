@@ -12,6 +12,7 @@ export const AlexaEventType = {
   LoopOffIntent: 'AMAZON.LoopOffIntent',
   SeekForwardIntent: 'SeekForwardIntent',
   SeekBackwardIntent: 'SeekBackwardIntent',
+  SeekToIntent: 'SeekToIntent',
   StartOverIntent: 'AMAZON.StartOverIntent',
   PauseIntent: 'AMAZON.PauseIntent',
   ResumeIntent: 'AMAZON.ResumeIntent',
@@ -105,6 +106,13 @@ export function summarizeLoopNoPlayback(): string {
 export function summarizeSeek(direction: 'forward' | 'backward', seconds: number): string {
   const dir = direction === 'forward' ? 'forward' : 'back';
   return `Skipped ${dir} ${seconds} seconds`;
+}
+
+export function summarizeSeekTo(offsetMs: number): string {
+  const totalSeconds = Math.floor(offsetMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `Jumped to ${minutes}:${seconds}`;
 }
 
 export function summarizeStartOver(): string {
