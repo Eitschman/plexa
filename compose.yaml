@@ -13,6 +13,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
       PLEX_URL: ${PLEX_URL:-http://host.docker.internal:32400}
+      NODE_ENV: ${NODE_ENV:-production}
     volumes:
       - plexa-data:/data
     extra_hosts:

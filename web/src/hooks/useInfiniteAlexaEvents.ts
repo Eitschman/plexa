@@ -153,7 +153,7 @@ export function useInfiniteAlexaEvents({
         hasMoreRef.current = false;
       }
     } finally {
-      if (abortRef.current === controller) {
+      if (abortRef.current === controller && !controller.signal.aborted) {
         setLoading(false);
         setLoadingMore(false);
         inFlightRef.current = false;
