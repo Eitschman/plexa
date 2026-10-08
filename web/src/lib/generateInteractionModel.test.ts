@@ -58,7 +58,7 @@ describe('generateInteractionModel', () => {
     } | undefined;
 
     expect(playArtistIntent).toBeDefined();
-    expect(playArtistIntent?.samples).toContain('play {artist}');
+    expect(playArtistIntent?.samples).toContain('play artist {artist}');
   });
 
   it('validates invocation names', () => {
