@@ -197,6 +197,10 @@ Relative seeking requires the Plexa invocation name:
 - *Alexa, ask plexa to skip forward 30 seconds*
 - *Alexa, ask plexa to go back 15 seconds*
 - *Alexa, ask plexa to skip forward* (defaults to 30 seconds)
+- *Alexa, ask plexa to skip to 2 minutes*
+- *Alexa, ask plexa to jump to 1 minute 30 seconds*
+
+After adding or updating the position-seek intent, download the current interaction model from Plexa Settings (or import `skill/interaction-model.json`), then **Build Model** again in the Alexa Developer Console.
 
 **Note:** Alexa controls whether its native iOS Now Playing UI shows an enabled scrubber. If the slider is disabled, use the voice seek commands above.
 

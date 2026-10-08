@@ -68,9 +68,27 @@
           ],
           "samples": [
             "go back {seconds} seconds",
-            "go back",
             "rewind {seconds} seconds",
             "rewind"
+          ]
+        },
+        {
+          "name": "SeekToIntent",
+          "slots": [
+            {
+              "name": "minutes",
+              "type": "AMAZON.NUMBER"
+            },
+            {
+              "name": "seconds",
+              "type": "AMAZON.NUMBER"
+            }
+          ],
+          "samples": [
+            "skip to {minutes} minutes",
+            "jump to {minutes} minutes {seconds} seconds",
+            "go to {seconds} seconds",
+            "play from {minutes} minutes"
           ]
         },
         {
@@ -119,8 +137,7 @@
           ],
           "samples": [
             "play artist {artist}",
-            "play {artist}",
-            "start {artist}"
+            "start artist {artist}"
           ]
         },
         {

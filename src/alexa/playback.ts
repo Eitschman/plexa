@@ -20,13 +20,17 @@ export function emptyAudioResponse(): SkillResponse {
 }
 
 export function audioPlayResponse(
-  item: Pick<QueueItem, 'streamUrl' | 'streamToken' | 'title' | 'artist' | 'artUrl'>,
+  item: Pick<
+    QueueItem,
+    'streamUrl' | 'streamUrlAlexa' | 'streamToken' | 'title' | 'artist' | 'artUrl'
+  >,
   options: AudioPlayOptions = {},
 ): SkillResponse | null {
-  const { streamUrl, streamToken, title, artist, artUrl } = item;
-  if (!streamUrl) return null;
+  const { streamUrlAlexa, streamUrl, streamToken, title, artist, artUrl } = item;
+  const alexaStreamUrl = streamUrlAlexa ?? streamUrl;
+  if (!alexaStreamUrl) return null;
 
-  const absoluteStream = toPublicMediaUrl(streamUrl);
+  const absoluteStream = toPublicMediaUrl(alexaStreamUrl);
   if (!absoluteStream) return null;
   const absoluteArt = artUrl ? toPublicMediaUrl(artUrl) ?? undefined : undefined;
 

@@ -15,6 +15,7 @@ export interface QueueItem {
   durationMs?: number;
   thumb?: string;
   streamUrl?: string;
+  streamUrlAlexa?: string;
   artUrl?: string;
   /** Opaque Alexa AudioPlayer stream token for this queue occurrence. */
   streamToken: string;
@@ -49,6 +50,8 @@ function shuffleArray<T>(arr: T[]): T[] {
 function normalizeQueueItem(item: QueueItem): QueueItem {
   return {
     ...item,
+    streamUrlAlexa:
+      item.streamUrlAlexa ?? createSignedMediaPath(item.ratingKey, 'audio', undefined, 'alexa'),
     streamToken: item.streamToken || newStreamToken(),
   };
 }
@@ -61,7 +64,8 @@ function toQueueItem(track: PlexTrackSummary): QueueItem {
     album: track.album,
     durationMs: track.durationMs,
     thumb: track.thumb,
-    streamUrl: createSignedMediaPath(track.ratingKey, 'audio'),
+    streamUrl: createSignedMediaPath(track.ratingKey, 'audio', undefined, 'web'),
+    streamUrlAlexa: createSignedMediaPath(track.ratingKey, 'audio', undefined, 'alexa'),
     artUrl: artUrlForTrack(track.ratingKey, track.thumb),
     streamToken: newStreamToken(),
   };
@@ -268,6 +272,25 @@ export function parseSeekSeconds(slotValue: string | undefined, defaultSeconds =
   const parsed = Number.parseInt(slotValue, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return defaultSeconds;
   return parsed;
+}
+
+export function parseSeekPosition(
+  minutesValue: string | undefined,
+  secondsValue: string | undefined,
+  durationMs?: number,
+): number | null {
+  if (!minutesValue && !secondsValue) return null;
+  const minutes = minutesValue ? Number.parseInt(minutesValue, 10) : 0;
+  const seconds = secondsValue ? Number.parseInt(secondsValue, 10) : 0;
+  if (
+    !Number.isFinite(minutes) ||
+    !Number.isFinite(seconds) ||
+    minutes < 0 ||
+    seconds < 0
+  ) {
+    return null;
+  }
+  return clampSeekOffset(0, (minutes * 60 + seconds) * 1000, durationMs);
 }
 
 export function normalizeSpokenName(name: string): string {

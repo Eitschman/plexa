@@ -30,6 +30,23 @@ describe('alexa playback responses', () => {
     });
   });
 
+  it('prefers the Alexa-targeted stream URL', () => {
+    const response = audioPlayResponse({
+      streamUrl: '/media/web-token.sig',
+      streamUrlAlexa: '/media/alexa-token.sig',
+      streamToken: 'abc123',
+      title: 'Song',
+    });
+
+    expect(response?.directives?.[0]).toMatchObject({
+      audioItem: {
+        stream: {
+          url: 'https://example.com/media/alexa-token.sig',
+        },
+      },
+    });
+  });
+
   it('includes expectedPreviousToken for enqueue directives', () => {
     const response = audioPlayResponse(
       {
