@@ -457,20 +457,14 @@ export class PlexAdapter {
     const server = this.ensureConnected();
     const { start, size } = clampPageOptions(options);
     const window = size + 1;
-    let items: Playlist[];
-    try {
-      items = await fetchItems(
+    const items = await fetchItems(
         server,
         '/playlists?playlistType=audio',
         undefined,
         Playlist,
         server,
         { containerStart: start, containerSize: window, maxResults: window },
-      );
-    } catch (err) {
-
-      throw err;
-    }
+    );
 
     return toPageResult(items.map(mapPlaylist), start, size);
   }
