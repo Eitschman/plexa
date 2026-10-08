@@ -29,6 +29,7 @@ describe('generateInteractionModel', () => {
     );
 
     expect(names).toContain('PlayPlaylistIntent');
+    expect(names).toContain('SeekToIntent');
   });
 
   it('uses the German interaction model for de-DE', () => {

@@ -4,6 +4,7 @@ import {
   SkillBuilders,
 } from 'ask-sdk-core';
 import type { Response as SkillResponse } from 'ask-sdk-model';
+
 import {
   AlexaEventType,
   logAlexaEvent,
@@ -25,6 +26,7 @@ import {
   summarizeQueueStart,
   summarizeSeek,
   summarizeSeekNoPlayback,
+  summarizeSeekTo,
   summarizeStartOver,
   summarizeStop,
   summarizeTransport,
@@ -41,6 +43,7 @@ import {
   getNextTrack,
   loadQueue,
   normalizeSpokenName,
+  parseSeekPosition,
   parseSeekSeconds,
   previousTrack,
   clearQueue,
@@ -132,7 +135,7 @@ const HelpIntentHandler: RequestHandler = {
   handle: async () => {
     logAlexaEvent({ type: AlexaEventType.HelpIntent, summary: summarizeHelp() });
     return speech(
-      'Zum Beispiel: Spiele meine Playlist Autofahrt, spiele Orden Ogan, spiele das Album Final Days oder spiele Gunman. Du kannst außerdem sagen: Wiederholen an, Wiederholen aus, 30 Sekunden vorspringen oder 15 Sekunden zurück.',
+      'Zum Beispiel: Spiele meine Playlist Autofahrt, spiele Orden Ogan, spiele das Album Final Days oder spiele Gunman. Du kannst außerdem sagen: Wiederholen an, Wiederholen aus, 30 Sekunden vorspringen 15 Sekunden zurück oder springe zu Minute zwei.',
       false,
     );
   },
@@ -403,7 +406,7 @@ const PlayTrackIntentHandler: RequestHandler = {
           (t) => t.artist?.toLowerCase().includes(artistNorm) ?? false,
         );
       }
-      const match = bestMatch(trackSlot, tracks) ?? tracks[0];
+      const match = bestMatch(trackSlot, tracks);
       if (!match) {
         logAlexaEvent({
           type: AlexaEventType.PlayTrackIntent,
@@ -480,6 +483,7 @@ const SeekIntentHandler: RequestHandler = {
     input.requestEnvelope.request.type === 'IntentRequest' &&
     (input.requestEnvelope.request.intent.name === 'SeekForwardIntent' ||
       input.requestEnvelope.request.intent.name === 'SeekBackwardIntent' ||
+      input.requestEnvelope.request.intent.name === 'SeekToIntent' ||
       input.requestEnvelope.request.intent.name === 'AMAZON.StartOverIntent'),
   handle: async (input) => {
     const intent = getIntent(input);
@@ -489,7 +493,9 @@ const SeekIntentHandler: RequestHandler = {
         ? AlexaEventType.SeekForwardIntent
         : name === 'SeekBackwardIntent'
           ? AlexaEventType.SeekBackwardIntent
-          : AlexaEventType.StartOverIntent;
+          : name === 'SeekToIntent'
+            ? AlexaEventType.SeekToIntent
+            : AlexaEventType.StartOverIntent;
 
     const { userId, deviceId } = getUserContext(input);
     const queue = loadQueue(userId, deviceId);
@@ -519,11 +525,47 @@ const SeekIntentHandler: RequestHandler = {
       return speech('Momentan wird nichts wiedergegeben.', true);
     }
 
+    if (
+      (name === 'SeekBackwardIntent' || name === 'SeekForwardIntent') &&
+      !intent?.slots?.seconds?.value
+    ) {
+      logAlexaEvent({
+        type: AlexaEventType.Fallback,
+        summary: summarizeFallback(name),
+      });
+      return speech(
+        'Zum Springen im Titel sage 30 Sekunden zurück oder 30 Sekunden vor. Zum Abspielen sage spiele Lied und den Namen.',
+        false,
+      );
+    }
+    if (
+      name === 'SeekToIntent' &&
+      !intent?.slots?.minutes?.value &&
+      !intent?.slots?.seconds?.value
+    ) {
+      logAlexaEvent({
+        type: AlexaEventType.Fallback,
+        summary: summarizeFallback(name),
+      });
+      return speech(
+        'Zum Springen im Titel sage springe zu zwei Minuten oder springe zu einer Minute 30 Sekunden.',
+        false,
+      );
+    }
+
     let offsetMs = offsetInMilliseconds;
 
     if (name === 'AMAZON.StartOverIntent') {
       logAlexaEvent({ type: eventType, summary: summarizeStartOver() });
       offsetMs = 0;
+    } else if (name === 'SeekToIntent') {
+      offsetMs =
+        parseSeekPosition(
+          intent?.slots?.minutes?.value,
+          intent?.slots?.seconds?.value,
+          current.durationMs,
+        ) ?? 0;
+      logAlexaEvent({ type: eventType, summary: summarizeSeekTo(offsetMs) });
     } else {
       const seconds = parseSeekSeconds(intent?.slots?.seconds?.value);
       const direction = name === 'SeekForwardIntent' ? 'forward' : 'backward';
