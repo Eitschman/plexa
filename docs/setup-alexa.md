@@ -238,7 +238,7 @@ Regional locales `en-US`, `en-GB`, `en-CA`, `en-AU`, and `en-IN` share [`skill/i
 
 ### French (`fr-FR`)
 
-Import [`skill/interaction-model.fr-FR.json`](../skill/interaction-model.fr-FR.json), or download it from Settings with locale **Français (France)**. A successful launch says: *"Bienvenue sur plexa. Vous pouvez me demander de lire une playlist, un artiste, un album ou une chanson."*
+Import [`skill/interaction-model.fr-FR.json`](../skill/interaction-model.fr-FR.json), or download it from Settings with locale **Français (France)**. A successful launch says: *"Bienvenue dans plexa. Vous pouvez me demander de lire une playlist, un artiste, un album ou une chanson."*
 
 | Intent | Example |
 |--------|---------|
