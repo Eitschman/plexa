@@ -23,7 +23,7 @@ Self-hosted Plex music dashboard with a custom Alexa skill. Stream your Plex lib
 - Global search across tracks, albums, artists, and playlists
 - Browser playback with queue panel through Plexa's signed media gateway
 - Playlist create, rename, delete, add/remove tracks, and reorder
-- Custom Alexa skill with playlist/artist/album/track voice commands
+- Custom Alexa skill with playlist/artist/album/track voice commands in English, French, and German
 - Guided staged setup in Settings (Plex → server → configuration)
 - System / light / dark themes and accessible UI patterns
 - Docker Compose deployment with persistent `/data` volume
@@ -137,6 +137,10 @@ Plexa uses a **private custom Alexa skill** that you create in the [Alexa Develo
 **→ [Full Alexa setup guide](docs/setup-alexa.md)** — step-by-step instructions for HTTPS exposure, Developer Console configuration, Plexa Settings, testing, and troubleshooting.
 
 The Settings page also includes an in-app **Alexa setup checklist** with a download button for a pre-filled interaction model.
+
+### Languages
+
+The skill supports English (`en-US`, `en-GB`, `en-CA`, `en-AU`, `en-IN`), French (`fr-FR`), and German (`de-DE`). In **Settings → Configuration**, set **Alexa skill locale** to the language of your Echo or Alexa app, then download the interaction model (or import the matching file from [`skill/`](skill/)). Regional English locales share the English model. Spoken replies follow the language Alexa sends with each request. Sample phrases for each language are in the [setup guide](docs/setup-alexa.md#languages).
 
 ## Backup and restore
 

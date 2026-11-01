@@ -66,7 +66,7 @@ Open the Plexa web UI → **Settings → Configuration**:
 | Public HTTPS URL | `https://your-host.example.com` | Origin only — **no** `/alexa` suffix |
 | Alexa skill ID | `amzn1.ask.skill.xxxx-xxxx` | Copy from Developer Console after Step 3 |
 | Invocation name | `plexa` | Must match the interaction model |
-| Locale | `en-US` | Must match the skill language in the console |
+| Alexa skill locale | `en-US`, `fr-FR`, or `de-DE` | Must match the Developer Console language and the device language |
 
 You can also seed these in [`.env`](../.env.example):
 
@@ -77,20 +77,32 @@ ALEXA_SKILL_ID=amzn1.ask.skill.xxxx-xxxx
 
 The public URL is used to build signed `/media/` stream URLs for Alexa. The Alexa skill endpoint is `{PUBLIC_URL}/alexa`. Playback fails if the public URL is missing or wrong.
 
-Use the **Download interaction model** button in the Settings checklist to get a JSON file pre-filled with your invocation name and locale. You will import this in Step 3.
+**Alexa skill locale** chooses the interaction model. Supported values:
+
+| Locale | Language | Interaction model |
+|--------|----------|-------------------|
+| `en-US` | English (US) | [`skill/interaction-model.json`](../skill/interaction-model.json) |
+| `en-GB` | English (UK) | Same English model |
+| `en-CA` | English (Canada) | Same English model |
+| `en-AU` | English (Australia) | Same English model |
+| `en-IN` | English (India) | Same English model |
+| `fr-FR` | Français (France) | [`skill/interaction-model.fr-FR.json`](../skill/interaction-model.fr-FR.json) |
+| `de-DE` | Deutsch (Deutschland) | [`skill/interaction-model.de-DE.json`](../skill/interaction-model.de-DE.json) |
+
+Use the **Download interaction model** button in the Settings checklist to get `interaction-model-<locale>.json`, pre-filled with your invocation name and the model for that locale. You will import this in Step 3. Sample phrases are in [Languages](#languages).
 
 ## Step 3: Create the skill in the Developer Console
 
 1. Open the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask).
 2. **Create Skill** → **Custom**.
-3. Choose a locale (e.g. **English (US)**) — must match Plexa Settings and your device language.
+3. Choose the same locale as **Alexa skill locale** in Plexa Settings and on the device — for example **English (US)**, **Français (France)**, or **Deutsch (Deutschland)**. Regional English locales (`en-GB`, `en-CA`, `en-AU`, `en-IN`) use the English interaction model.
 4. For hosting service, choose **Provision your own** (Plexa runs on your own HTTPS endpoint, not Alexa-hosted code).
 5. Under **Build** → **Interfaces**, enable **Audio Player** only.
    - Do **not** enable HTML/APL interfaces unless you plan to support them.
    - **Required for playback.** If Audio Player is off, Alexa returns: *"Invalid Directive — the requested skill has not declared that it implements the audio player interface."*
 6. Click **Save Interfaces**.
 7. Upload icons from [`skill/icons/`](../skill/icons/) (see [`skill/icons/README.md`](../skill/icons/README.md) for sizes and export commands).
-8. Under **Interaction Model** → **JSON Editor**, import the file you downloaded from Settings, or paste [`skill/interaction-model.json`](../skill/interaction-model.json).
+8. Under **Interaction Model** → **JSON Editor**, import the file you downloaded from Settings into that same locale. To paste a model by hand, use [`skill/interaction-model.json`](../skill/interaction-model.json) for English, [`skill/interaction-model.fr-FR.json`](../skill/interaction-model.fr-FR.json) for French, or [`skill/interaction-model.de-DE.json`](../skill/interaction-model.de-DE.json) for German.
 9. Click **Save Model**, then **Build Model**. Wait for **Build Successful**.
    - Custom intents (play playlist, etc.) only work after a successful build. `open plexa` (LaunchRequest) can work even when the model failed to build.
 10. Under **Endpoint**:
@@ -124,7 +136,7 @@ The console simulator does not render audio, but Skill I/O shows the directives 
 ### Phone (Alexa app)
 
 1. Sign in to the **Alexa app** with the **same Amazon account** as the Developer Console.
-2. Set language: **More** → **Settings** → **Alexa on This Phone** → **English (United States)** (must match skill locale).
+2. Set the phone language to the skill locale: **More** → **Settings** → **Alexa on This Phone** → **English (United States)**, **Français (France)**, or **Deutsch (Deutschland)**.
 3. Enable the dev skill: **Skills & Games** → **Your Skills** → **Dev** → find **Plexa** → **ENABLE TO USE**.
 4. Use the two-step flow (most reliable):
    ```
@@ -152,7 +164,7 @@ One-shot examples that work better:
 An Echo (or other Alexa speaker) is the most reliable device for **AudioPlayer** playback.
 
 1. Register the Echo with the same Amazon account as your developer account.
-2. Set device language to **English (US)** (or your skill locale).
+2. Set the device language to the skill locale: **English (US)**, **Français (France)**, or **Deutsch (Deutschland)**.
 3. Enable the dev skill (same as phone: **Your Skills** → **Dev**).
 4. Say:
    ```
@@ -200,9 +212,59 @@ Relative seeking requires the Plexa invocation name:
 - *Alexa, ask plexa to skip to 2 minutes*
 - *Alexa, ask plexa to jump to 1 minute 30 seconds*
 
-After adding or updating the position-seek intent, download the current interaction model from Plexa Settings (or import `skill/interaction-model.json`), then **Build Model** again in the Alexa Developer Console.
+After adding or updating the position-seek intent, download the current interaction model from Plexa Settings (or import the model file for your locale), then **Build Model** again in the Alexa Developer Console.
 
 **Note:** Alexa controls whether its native iOS Now Playing UI shows an enabled scrubber. If the slider is disabled, use the voice seek commands above.
+
+## Languages
+
+The Developer Console language, the imported interaction model, and the Echo or Alexa app language must be the same locale. **Alexa skill locale** in Plexa Settings selects which model the download button fills with your invocation name. Spoken replies follow the locale on each Alexa request: regional English uses English, French requests use French, and German requests use German.
+
+Playlist, artist, album, and song names stay as they are stored in Plex. Matching ignores accents and command words such as "playlist", "Playlist", "album", or "Album".
+
+Built-in next, previous, pause, resume, loop, and start over stay Alexa's own phrases for that language. Custom play and seek commands use the samples below. Say them after opening the skill, or as `Alexa, ask <invocation name> to …`.
+
+A generic play verb (English *play*, French *joue*, German *spiele*) is often claimed by Amazon Music. Prefer the collision-safe verb for the skill language:
+
+| Language | Play | Shuffle |
+|----------|------|---------|
+| English | **start** | **mix** |
+| French | **lance** | **mélange** |
+| German | **starte** | **mische** |
+
+### English
+
+Regional locales `en-US`, `en-GB`, `en-CA`, `en-AU`, and `en-IN` share [`skill/interaction-model.json`](../skill/interaction-model.json). Examples are in [Recommended voice commands](#recommended-voice-commands) and [Playback controls](#playback-controls). A successful launch says: *"Welcome to plexa. You can ask me to play a playlist, artist, album, or song."* (with your invocation name in place of "plexa").
+
+### French (`fr-FR`)
+
+Import [`skill/interaction-model.fr-FR.json`](../skill/interaction-model.fr-FR.json), or download it from Settings with locale **Français (France)**. A successful launch says: *"Bienvenue dans plexa. Vous pouvez me demander de lire une playlist, un artiste, un album ou une chanson."*
+
+| Intent | Example |
+|--------|---------|
+| Play playlist | lance la playlist voyage |
+| Shuffle playlist | mélange la playlist voyage |
+| Play artist | lance Fleetwood Mac |
+| Play album | joue l'album Rumours |
+| Play song | joue la chanson Dreams |
+| Skip forward | avance de 30 secondes |
+| Skip back | recule de 15 secondes |
+| Skip to | va à deux minutes |
+
+### German (`de-DE`)
+
+Import [`skill/interaction-model.de-DE.json`](../skill/interaction-model.de-DE.json), or download it from Settings with locale **Deutsch (Deutschland)**. A successful launch says: *"Willkommen bei plexa. Du kannst mich bitten, eine Playlist, einen Künstler, ein Album oder einen Titel abzuspielen."*
+
+| Intent | Example |
+|--------|---------|
+| Play playlist | starte die playlist Autofahrt |
+| Shuffle playlist | mische die playlist Autofahrt |
+| Play artist | starte Orden Ogan |
+| Play album | spiele das album Final Days |
+| Play song | spiele titel Gunman |
+| Skip forward | springe 30 Sekunden vor |
+| Skip back | spule 15 Sekunden zurück |
+| Skip to | springe zu Minute zwei |
 
 ## Troubleshooting
 
@@ -210,8 +272,8 @@ After adding or updating the position-seek intent, download the current interact
 |---------|--------------|-----|
 | Skill does not respond | Public URL unreachable | Verify `curl https://<host>/health` |
 | `open plexa` works; play commands do nothing | Interaction model not built | Fix build errors; remove invalid intents; **Build Model** again |
-| Amazon Music Unlimited upsell | Skill not invoked; music domain collision | Enable dev skill on device; use **start**/**mix**; try two-step `open` then `start …` |
-| "Sorry, that is not supported on this device" (phone) | Dev skill not enabled or locale mismatch | Enable under **Your Skills → Dev**; set **English (US)** |
+| Amazon Music Unlimited upsell | Skill not invoked; music domain collision | Enable dev skill on device; use the collision-safe verb (**start**/**mix**, **lance**/**mélange**, or **starte**/**mische**); try two-step `open` then the play command |
+| "Sorry, that is not supported on this device" (phone) | Dev skill not enabled or locale mismatch | Enable under **Your Skills → Dev**; set the device language to the skill locale, such as **English (US)**, **Français (France)**, or **Deutsch (Deutschland)** |
 | Invalid Directive / Audio Player not declared | Audio Player interface off | **Build → Interfaces → Audio Player** → Save → rebuild model |
 | `applicationId mismatch` | Skill ID mismatch | Copy Skill ID from console into Plexa Settings |
 | "I couldn't find a playlist called …" | Plex playlist name mismatch | Check exact playlist name in Plexa; try `start playlist <name>` |

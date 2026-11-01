@@ -293,9 +293,22 @@ export function parseSeekPosition(
   return clampSeekOffset(0, (minutes * 60 + seconds) * 1000, durationMs);
 }
 
-export function normalizeSpokenName(name: string): string {
-  return name
-    .toLowerCase()
+type SpokenLanguage = 'en' | 'fr' | 'de';
+
+function spokenLanguage(locale?: string): SpokenLanguage {
+  const normalized = (locale ?? 'en').replaceAll('_', '-').toLowerCase();
+  if (normalized === 'fr' || normalized.startsWith('fr-')) return 'fr';
+  if (normalized === 'de' || normalized.startsWith('de-')) return 'de';
+  return 'en';
+}
+
+function stripSuffix(value: string, pattern: RegExp): string {
+  const next = value.replace(pattern, '').trim();
+  return next.length > 0 ? next : value;
+}
+
+function normalizeEnglishSpokenName(value: string): string {
+  return value
     .replace(/^(ask|tell)\s+\w+(\s+\w+)?\s+to\s+/i, '')
     .replace(/^(play|start|mix|shuffle)\s+/i, '')
     .replace(/^(the|my)\s+/i, '')
@@ -303,12 +316,67 @@ export function normalizeSpokenName(name: string): string {
     .trim();
 }
 
-export function bestMatch<T extends { title: string }>(query: string, items: T[]): T | null {
-  const q = normalizeSpokenName(query);
+function normalizeFrenchSpokenName(value: string): string {
+  return stripSuffix(
+    value
+      .replace(/^(?:joue|jouer|lance|lancer)\s+de\s+la\s+musique\s+de\s+/i, '')
+      .replace(
+        /^(?:joue|jouer|lance|lancer|mélange|melange|mixe)\s+(?:(?:la|le|les|ma|mon|mes|l')\s*)?(?:playlist|album|chanson|titre|artiste)\s+/i,
+        '',
+      )
+      .replace(/^(?:joue|jouer|lance|lancer|mélange|melange|mixe)\s+/i, '')
+      .trim(),
+    /\s+(?:playlist|album|chanson)$/i,
+  );
+}
+
+function normalizeGermanSpokenName(value: string): string {
+  return stripSuffix(
+    value
+      .replace(/^(?:spiele|spiel|starte)\s+(?:musik|etwas)\s+von\s+/i, '')
+      .replace(
+        /^(?:spiele|spiel|starte|mische)\s+(?:(?:den|die|das|meine|meinen|mein)\s+)?(?:playlist|album|lied|titel|kuenstler|künstler)\s+/i,
+        '',
+      )
+      .replace(/^(?:spiele|spiel|starte|mische)\s+/i, '')
+      .trim(),
+    /\s+(?:zufaellig|zufällig|playlist|album)$/i,
+  );
+}
+
+export function normalizeSpokenName(name: string, locale?: string): string {
+  const value = name.toLowerCase();
+  const language = spokenLanguage(locale);
+  if (language === 'fr') return normalizeFrenchSpokenName(value);
+  if (language === 'de') return normalizeGermanSpokenName(value);
+  return normalizeEnglishSpokenName(value);
+}
+
+export function foldForMatch(value: string): string {
+  return value.normalize('NFD').replace(/\p{M}/gu, '').replace(/ß/g, 'ss').toLowerCase();
+}
+
+export function spokenNameIncludes(
+  candidate: string | undefined,
+  query: string,
+  locale?: string,
+): boolean {
+  if (!candidate) return false;
+  const normalized = foldForMatch(normalizeSpokenName(query, locale));
+  if (!normalized) return false;
+  return foldForMatch(candidate).includes(normalized);
+}
+
+export function bestMatch<T extends { title: string }>(
+  query: string,
+  items: T[],
+  locale?: string,
+): T | null {
+  const q = foldForMatch(normalizeSpokenName(query, locale));
   if (!q) return null;
-  const exact = items.find((i) => i.title.toLowerCase() === q);
-  const contains = items.filter((i) => i.title.toLowerCase().includes(q));
-  const reverseContains = items.filter((i) => q.includes(i.title.toLowerCase()));
+  const exact = items.find((item) => foldForMatch(item.title) === q);
+  const contains = items.filter((item) => foldForMatch(item.title).includes(q));
+  const reverseContains = items.filter((item) => q.includes(foldForMatch(item.title)));
   if (exact) return exact;
   if (contains.length === 1) return contains[0];
   if (reverseContains.length === 1) return reverseContains[0];
