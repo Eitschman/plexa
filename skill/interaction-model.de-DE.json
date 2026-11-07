@@ -52,11 +52,11 @@
             }
           ],
           "samples": [
-            "springe {seconds} Sekunden vor",
+            "springe {seconds} sekunden vor",
+            "spule {seconds} sekunden vor",
+            "gehe {seconds} sekunden vor",
             "springe vor",
-            "spule {seconds} Sekunden vor",
-            "spule vor",
-            "gehe {seconds} Sekunden vor"
+            "spule vor"
           ]
         },
         {
@@ -68,11 +68,31 @@
             }
           ],
           "samples": [
-            "springe {seconds} Sekunden zurück",
-            "springe zurück",
-            "spule {seconds} Sekunden zurück",
+            "springe {seconds} sekunden zurück",
+            "spule {seconds} sekunden zurück",
+            "gehe {seconds} sekunden zurück",
             "spule zurück",
-            "gehe {seconds} Sekunden zurück"
+            "springe zurück"
+          ]
+        },
+        {
+          "name": "SeekToIntent",
+          "slots": [
+            {
+              "name": "minutes",
+              "type": "AMAZON.NUMBER"
+            },
+            {
+              "name": "seconds",
+              "type": "AMAZON.NUMBER"
+            }
+          ],
+          "samples": [
+            "springe zu {minutes} minuten",
+            "springe zu minute {minutes}",
+            "springe zu {minutes} minuten {seconds} sekunden",
+            "gehe zu {seconds} sekunden",
+            "spiele ab {minutes} minuten"
           ]
         },
         {
@@ -84,12 +104,12 @@
             }
           ],
           "samples": [
-            "spiele Playlist {playlist}",
-            "starte Playlist {playlist}",
-            "spiele die Playlist {playlist}",
-            "starte die Playlist {playlist}",
-            "spiele meine Playlist {playlist}",
-            "starte meine Playlist {playlist}"
+            "spiele playlist {playlist}",
+            "starte playlist {playlist}",
+            "spiele die playlist {playlist}",
+            "starte die playlist {playlist}",
+            "spiele meine playlist {playlist}",
+            "starte meine playlist {playlist}"
           ]
         },
         {
@@ -101,11 +121,11 @@
             }
           ],
           "samples": [
-            "mische Playlist {playlist}",
-            "mische die Playlist {playlist}",
-            "mische meine Playlist {playlist}",
-            "spiele Playlist {playlist} zufällig",
-            "spiele die Playlist {playlist} zufällig"
+            "mische playlist {playlist}",
+            "mische die playlist {playlist}",
+            "mische meine playlist {playlist}",
+            "spiele playlist {playlist} zufällig",
+            "spiele die playlist {playlist} zufällig"
           ]
         },
         {
@@ -117,10 +137,11 @@
             }
           ],
           "samples": [
-            "spiele Künstler {artist}",
-            "spiele den Künstler {artist}",
-            "spiele Musik von {artist}",
+            "spiele künstler {artist}",
+            "starte künstler {artist}",
+            "spiele musik von {artist}",
             "spiele etwas von {artist}",
+            "spiele den künstler {artist}",
             "spiele {artist}",
             "starte {artist}"
           ]
@@ -134,10 +155,11 @@
             }
           ],
           "samples": [
-            "mische Künstler {artist}",
-            "mische Musik von {artist}",
+            "mische künstler {artist}",
+            "spiele künstler {artist} zufällig",
+            "mische musik von {artist}",
             "spiele {artist} zufällig",
-            "spiele Musik von {artist} zufällig"
+            "spiele musik von {artist} zufällig"
           ]
         },
         {
@@ -149,10 +171,10 @@
             }
           ],
           "samples": [
-            "spiele Album {album}",
-            "spiele das Album {album}",
-            "starte Album {album}",
-            "starte das Album {album}"
+            "spiele album {album}",
+            "starte album {album}",
+            "spiele das album {album}",
+            "starte das album {album}"
           ]
         },
         {
@@ -164,10 +186,10 @@
             }
           ],
           "samples": [
-            "mische Album {album}",
-            "mische das Album {album}",
-            "spiele Album {album} zufällig",
-            "spiele das Album {album} zufällig"
+            "mische album {album}",
+            "mische das album {album}",
+            "spiele album {album} zufällig",
+            "spiele das album {album} zufällig"
           ]
         },
         {
@@ -179,12 +201,12 @@
             }
           ],
           "samples": [
-            "spiele Lied {track}",
-            "spiele das Lied {track}",
-            "spiele Titel {track}",
-            "spiele den Titel {track}",
-            "starte Lied {track}",
-            "starte Titel {track}",
+            "spiele lied {track}",
+            "spiele titel {track}",
+            "starte lied {track}",
+            "starte titel {track}",
+            "spiele das lied {track}",
+            "spiele den titel {track}",
             "spiele {track}"
           ]
         }

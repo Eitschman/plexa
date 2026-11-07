@@ -1,3 +1,4 @@
+import { isSupportedAlexaLocale } from '../alexa/locales.js';
 import { decryptSecret, encryptSecret, getEnv, migrateSecretIfLegacy } from '../config/index.js';
 import { getSettings, updateSettings, type SettingsRow } from '../db/index.js';
 import { normalizePublicHttpsUrl, validatePublicHttpsUrl } from '../lib/publicUrl.js';
@@ -111,7 +112,12 @@ export function updateSettingsFromInput(input: SettingsInput): PublicSettings {
   }
   if (input.alexaSkillId !== undefined) patch.alexa_skill_id = input.alexaSkillId;
   if (input.invocationName !== undefined) patch.invocation_name = input.invocationName;
-  if (input.locale !== undefined) patch.locale = input.locale;
+  if (input.locale !== undefined) {
+    if (!isSupportedAlexaLocale(input.locale)) {
+      throw new Error('Unsupported Alexa locale');
+    }
+    patch.locale = input.locale;
+  }
 
   if (input.alexaEventsRetentionDays !== undefined) {
     const days = input.alexaEventsRetentionDays;

@@ -652,7 +652,7 @@ export class PlexAdapter {
       'X-Plex-Token': token,
       'X-Plex-Client-Identifier': 'plexa',
       'X-Plex-Product': 'Plexa',
-      'X-Plex-Version': '0.3.1',
+      'X-Plex-Version': '0.4.0',
       'X-Plex-Platform': 'Web',
       'X-Plex-Platform-Version': '1.0',
       'X-Plex-Device': 'Plexa',

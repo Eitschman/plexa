@@ -88,6 +88,32 @@ describe('alexa playback responses', () => {
     });
   });
 
+  it('uses a supplied unknown-title label and does not invent an English one', () => {
+    const localized = audioPlayResponse(
+      {
+        streamUrl: '/media/token.sig',
+        streamToken: 'abc123',
+        title: '',
+        artist: 'Artiste',
+      },
+      { unknownTitle: 'Inconnu' },
+    );
+    expect(localized?.directives?.[0]).toMatchObject({
+      audioItem: { metadata: { title: 'Inconnu', subtitle: 'Artiste' } },
+    });
+
+    const untitled = audioPlayResponse({
+      streamUrl: '/media/token.sig',
+      streamToken: 'abc123',
+      title: '',
+      artist: 'Artist',
+    });
+    const metadata = untitled?.directives?.[0] as {
+      audioItem?: { metadata?: { title?: string } };
+    };
+    expect(metadata.audioItem?.metadata?.title).toBeUndefined();
+  });
+
   it('returns null when public url is missing', () => {
     delete process.env.PUBLIC_URL;
     resetEnvForTests();

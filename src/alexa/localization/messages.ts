@@ -1,0 +1,32 @@
+export interface AlexaMessages {
+  launchWelcome(invocationName: string): string;
+  help(): string;
+  stopping(): string;
+  whichPlaylist(): string;
+  playlistNotFound(name: string): string;
+  playlistEmpty(): string;
+  playlistStreamFailed(): string;
+  plexNotConfiguredSetup(): string;
+  whichArtist(): string;
+  notFound(name: string): string;
+  artistEmpty(): string;
+  artistStreamFailed(): string;
+  plexNotConfigured(): string;
+  whichAlbum(): string;
+  albumNotFound(name: string): string;
+  albumEmpty(): string;
+  albumStreamFailed(): string;
+  whichSong(): string;
+  trackStreamFailed(): string;
+  nothingPlaying(): string;
+  loopOn(): string;
+  loopOff(): string;
+  seekUsage(): string;
+  seekToUsage(): string;
+  seekFailed(): string;
+  streamFailed(): string;
+  queueEnd(): string;
+  queueStart(): string;
+  fallback(): string;
+  unknownTitle(): string;
+}

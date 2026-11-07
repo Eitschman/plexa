@@ -9,42 +9,67 @@ describe('spoken name matching', () => {
     expect(normalizeSpokenName('the evening paath playlist')).toBe('evening paath');
   });
 
-  it('normalizes German Alexa phrasing', () => {
-    expect(normalizeSpokenName('spiele Orden Ogan')).toBe('orden ogan');
-    expect(normalizeSpokenName('spiele den Künstler Orden Ogan')).toBe('orden ogan');
-    expect(normalizeSpokenName('spiele Musik von Orden Ogan')).toBe('orden ogan');
-    expect(normalizeSpokenName('starte das Album Final Days')).toBe('final days');
-    expect(normalizeSpokenName('spiele Metal zufällig')).toBe('metal');
-  });
-
   it('finds best playlist match', () => {
-    const playlists = [
-      { title: 'Road Trip' },
-      { title: 'Jazz Night' },
-      { title: 'Evening Paath' },
-    ];
-
+    const playlists = [{ title: 'Road Trip' }, { title: 'Jazz Night' }, { title: 'Evening Paath' }];
     expect(bestMatch('road trip', playlists)?.title).toBe('Road Trip');
     expect(bestMatch('jazz', playlists)?.title).toBe('Jazz Night');
     expect(bestMatch('evening paath Playlist', playlists)?.title).toBe('Evening Paath');
   });
 
-  it('tolerates small speech recognition errors', () => {
-    const artists = [
-      { title: 'Orden Ogan' },
-      { title: 'Alestorm' },
-      { title: 'Wind Rose' },
-    ];
-
-    expect(bestMatch('Orden Organ', artists)?.title).toBe('Orden Ogan');
+  it('strips French and German command phrases without changing stored titles', () => {
+    expect(normalizeSpokenName('joue la playlist voyage', 'fr-FR')).toBe('voyage');
+    expect(normalizeSpokenName("joue l'album rumours", 'fr-FR')).toBe('rumours');
+    expect(normalizeSpokenName('joue de la musique de stromae', 'fr-FR')).toBe('stromae');
+    expect(normalizeSpokenName('Les Misérables', 'fr-FR')).toBe('les misérables');
+    expect(normalizeSpokenName('spiele die playlist autofahrt', 'de-DE')).toBe('autofahrt');
+    expect(normalizeSpokenName('spiele musik von rammstein', 'de-DE')).toBe('rammstein');
+    expect(normalizeSpokenName('Die Ärzte', 'de-DE')).toBe('die ärzte');
+    expect(normalizeSpokenName('Album', 'de-DE')).toBe('album');
   });
 
-  it('does not guess when fuzzy matches are ambiguous', () => {
-    const artists = [
-      { title: 'Metallica' },
-      { title: 'Metal Church' },
-    ];
+  it('keeps command stripping inside the request language', () => {
+    expect(normalizeSpokenName('joue la playlist voyage', 'en-US')).toBe('joue la playlist voyage');
+    expect(normalizeSpokenName('spiele die playlist autofahrt', 'fr-FR')).toBe('spiele die playlist autofahrt');
+    expect(normalizeSpokenName('play the album rumours', 'de-DE')).toBe('play the album rumours');
+  });
 
-    expect(bestMatch('Metal', artists)).toBeNull();
+  it('matches accented titles and preserves the original title', () => {
+    const artists = [{ title: 'Die Ärzte' }, { title: 'Björk' }, { title: 'Beyoncé' }];
+    expect(bestMatch('spiele die ärzte', artists, 'de-DE')?.title).toBe('Die Ärzte');
+    expect(bestMatch('Bjork', artists, 'de-DE')?.title).toBe('Björk');
+    expect(bestMatch('Beyonce', artists, 'fr-FR')?.title).toBe('Beyoncé');
+    expect(bestMatch('strasse', [{ title: 'Straße' }], 'de-DE')?.title).toBe('Straße');
+  });
+
+  it('preserves German command normalization with an explicit request locale', () => {
+    for (const phrase of ['spiele Orden Ogan', 'spiele den Künstler Orden Ogan', 'spiele Musik von Orden Ogan']) {
+      expect(normalizeSpokenName(phrase, 'de-DE')).toBe('orden ogan');
+    }
+    expect(normalizeSpokenName('starte das Album Final Days', 'de-DE')).toBe('final days');
+    expect(normalizeSpokenName('spiele Metal zufällig', 'de-DE')).toBe('metal');
+  });
+
+  it('retains fuzzy matching after language normalization and accent folding', () => {
+    const artists = [{ title: 'Orden Ogan' }, { title: 'Alestorm' }, { title: 'Wind Rose' }];
+    expect(bestMatch('spiele Orden Organ', artists, 'de-DE')?.title).toBe('Orden Ogan');
+    expect(bestMatch('Orden Organ', artists)?.title).toBe('Orden Ogan');
+    expect(bestMatch('Beyonze', [{ title: 'Beyoncé' }], 'fr-FR')?.title).toBe('Beyoncé');
+  });
+
+  it('rejects genuinely ambiguous fuzzy matches regardless of candidate order', () => {
+    const artists = [{ title: 'Orden Ogan' }, { title: 'Orden Oran' }];
+    expect(bestMatch('Orden Organ', artists, 'de-DE')).toBeNull();
+    expect(bestMatch('Orden Organ', [...artists].reverse(), 'de-DE')).toBeNull();
+    expect(bestMatch('Metal', [{ title: 'Metallica' }, { title: 'Metal Church' }], 'de-DE')).toBeNull();
+    expect(bestMatch('abcdefghzz', [{ title: 'abcdefghij' }], 'de-DE')).toBeNull();
+  });
+
+  it('prioritizes exact matches and leaves stored names and empty queries intact', () => {
+    const artists = [{ title: 'Orden Ogan' }, { title: 'Orden Organ' }, { title: 'Die Ärzte' }];
+    expect(bestMatch('Orden Organ', artists, 'de-DE')).toBe(artists[1]);
+    expect(bestMatch('spiele Die Ärzte', artists, 'de-DE')).toBe(artists[2]);
+    expect(artists[2].title).toBe('Die Ärzte');
+    expect(bestMatch('', artists, 'de-DE')).toBeNull();
+    expect(bestMatch('Orden Organ', [], 'de-DE')).toBeNull();
   });
 });

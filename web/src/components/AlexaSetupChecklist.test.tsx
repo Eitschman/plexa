@@ -85,4 +85,18 @@ describe('AlexaSetupChecklist', () => {
     await user.click(screen.getByRole('button', { name: /download interaction model/i }));
     expect(downloadInteractionModel).toHaveBeenCalledWith('my plex', 'en-CA');
   });
+
+  it('shows the French skill locale and downloads that model', async () => {
+    const user = userEvent.setup();
+    render(
+      <AlexaSetupChecklist
+        invocationName="plexa"
+        locale="fr-FR"
+      />,
+    );
+
+    expect(screen.getByText('Create skill.').closest('li')).toHaveTextContent('Français (France)');
+    await user.click(screen.getByRole('button', { name: /download interaction model/i }));
+    expect(downloadInteractionModel).toHaveBeenCalledWith('plexa', 'fr-FR');
+  });
 });

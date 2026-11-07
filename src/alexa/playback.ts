@@ -6,6 +6,7 @@ export interface AudioPlayOptions {
   playBehavior?: 'REPLACE_ALL' | 'ENQUEUE';
   offsetMs?: number;
   expectedPreviousToken?: string;
+  unknownTitle?: string;
 }
 
 export function speech(text: string, endSession = true): SkillResponse {
@@ -34,11 +35,12 @@ export function audioPlayResponse(
   if (!absoluteStream) return null;
   const absoluteArt = artUrl ? toPublicMediaUrl(artUrl) ?? undefined : undefined;
 
+  const displayTitle = title || options.unknownTitle || undefined;
   const metadata =
-    title || artist || absoluteArt
+    displayTitle || artist || absoluteArt
       ? {
           metadata: {
-            title: title ?? 'Unknown',
+            title: displayTitle,
             subtitle: artist,
             art: absoluteArt ? { sources: [{ url: absoluteArt }] } : undefined,
           },
