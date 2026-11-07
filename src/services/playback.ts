@@ -293,30 +293,78 @@ export function parseSeekPosition(
   return clampSeekOffset(0, (minutes * 60 + seconds) * 1000, durationMs);
 }
 
-export function normalizeSpokenName(name: string): string {
-  return name
-    .toLowerCase()
+type SpokenLanguage = 'en' | 'fr' | 'de';
 
-    // English Alexa phrasing
+function spokenLanguage(locale?: string): SpokenLanguage {
+  const normalized = (locale ?? 'en').replaceAll('_', '-').toLowerCase();
+  if (normalized === 'fr' || normalized.startsWith('fr-')) return 'fr';
+  if (normalized === 'de' || normalized.startsWith('de-')) return 'de';
+  return 'en';
+}
+
+function stripSuffix(value: string, pattern: RegExp): string {
+  const next = value.replace(pattern, '').trim();
+  return next.length > 0 ? next : value;
+}
+
+function normalizeEnglishSpokenName(value: string): string {
+  return value
     .replace(/^(ask|tell)\s+\w+(\s+\w+)?\s+to\s+/i, '')
     .replace(/^(play|start|mix|shuffle)\s+/i, '')
     .replace(/^(the|my)\s+/i, '')
-
-    // German Alexa phrasing
-    .replace(/^(spiele|spiel|starte|mische)\s+/i, '')
-    .replace(/^(den|die|das|meine|meinen|mein)\s+/i, '')
-    .replace(/^(musik\s+von|etwas\s+von)\s+/i, '')
-
-    // Media type prefixes
-    .replace(/^(playlist|album|lied|titel|künstler|kuenstler)\s+/i, '')
-
-    // Media type suffixes
-    .replace(/\s+(playlist|album|song|track|lied|titel|künstler|kuenstler)$/i, '')
-
-    // German shuffle suffix
-    .replace(/\s+(zufällig|zufaellig)$/i, '')
-
+    .replace(/\s+(playlist|album|song|track)$/i, '')
     .trim();
+}
+
+function normalizeFrenchSpokenName(value: string): string {
+  return stripSuffix(
+    value
+      .replace(/^(?:joue|jouer|lance|lancer)\s+de\s+la\s+musique\s+de\s+/i, '')
+      .replace(
+        /^(?:joue|jouer|lance|lancer|mélange|melange|mixe)\s+(?:(?:la|le|les|ma|mon|mes|l')\s*)?(?:playlist|album|chanson|titre|artiste)\s+/i,
+        '',
+      )
+      .replace(/^(?:joue|jouer|lance|lancer|mélange|melange|mixe)\s+/i, '')
+      .trim(),
+    /\s+(?:playlist|album|chanson)$/i,
+  );
+}
+
+function normalizeGermanSpokenName(value: string): string {
+  return stripSuffix(
+    value
+      .replace(/^(?:spiele|spiel|starte)\s+(?:musik|etwas)\s+von\s+/i, '')
+      .replace(
+        /^(?:spiele|spiel|starte|mische)\s+(?:(?:den|die|das|meine|meinen|mein)\s+)?(?:playlist|album|lied|titel|kuenstler|künstler)\s+/i,
+        '',
+      )
+      .replace(/^(?:spiele|spiel|starte|mische)\s+/i, '')
+      .trim(),
+    /\s+(?:zufaellig|zufällig|playlist|album)$/i,
+  );
+}
+
+export function normalizeSpokenName(name: string, locale?: string): string {
+  const value = name.toLowerCase();
+  const language = spokenLanguage(locale);
+  if (language === 'fr') return normalizeFrenchSpokenName(value);
+  if (language === 'de') return normalizeGermanSpokenName(value);
+  return normalizeEnglishSpokenName(value);
+}
+
+export function foldForMatch(value: string): string {
+  return value.normalize('NFD').replace(/\p{M}/gu, '').replace(/ß/g, 'ss').toLowerCase();
+}
+
+export function spokenNameIncludes(
+  candidate: string | undefined,
+  query: string,
+  locale?: string,
+): boolean {
+  if (!candidate) return false;
+  const normalized = foldForMatch(normalizeSpokenName(query, locale));
+  if (!normalized) return false;
+  return foldForMatch(candidate).includes(normalized);
 }
 
 function levenshteinDistance(a: string, b: string): number {
@@ -350,47 +398,30 @@ function similarity(a: string, b: string): number {
   return 1 - levenshteinDistance(a, b) / maxLength;
 }
 
-export function bestMatch<T extends { title: string }>(query: string, items: T[]): T | null {
-  const q = normalizeSpokenName(query);
-
+export function bestMatch<T extends { title: string }>(
+  query: string,
+  items: T[],
+  locale?: string,
+): T | null {
+  const q = foldForMatch(normalizeSpokenName(query, locale));
   if (!q) return null;
+  const exact = items.find((item) => foldForMatch(item.title) === q);
+  const contains = items.filter((item) => foldForMatch(item.title).includes(q));
+  const reverseContains = items.filter((item) => q.includes(foldForMatch(item.title)));
+  if (exact) return exact;
+  if (contains.length === 1) return contains[0];
+  if (reverseContains.length === 1) return reverseContains[0];
 
-  const normalizedItems = items.map((item) => ({
-    item,
-    normalizedTitle: normalizeSpokenName(item.title),
-  }));
-
-  const exact = normalizedItems.find((entry) => entry.normalizedTitle === q);
-  if (exact) return exact.item;
-
-  const contains = normalizedItems.filter((entry) =>
-    entry.normalizedTitle.includes(q),
-  );
-  if (contains.length === 1) return contains[0].item;
-
-  const reverseContains = normalizedItems.filter((entry) =>
-    q.includes(entry.normalizedTitle),
-  );
-  if (reverseContains.length === 1) return reverseContains[0].item;
-
-  const fuzzy = normalizedItems
-    .map((entry) => ({
-      ...entry,
-      score: similarity(q, entry.normalizedTitle),
-    }))
+  const fuzzy = items
+    .map((item) => ({ item, score: similarity(q, foldForMatch(item.title)) }))
     .filter((entry) => entry.score >= 0.82)
     .sort((a, b) => b.score - a.score);
 
-  if (fuzzy.length === 0) return null;
-
   const best = fuzzy[0];
+  if (!best) return null;
   const secondBest = fuzzy[1];
-
-  // Require a clear winner instead of guessing between similar titles.
-  if (secondBest && best.score - secondBest.score < 0.08) {
-    return null;
-  }
-
+  // Keep the fork's confidence threshold and require a clear winner.
+  if (secondBest && best.score - secondBest.score < 0.08) return null;
   return best.item;
 }
 

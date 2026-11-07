@@ -325,6 +325,45 @@ describe('SettingsPage', () => {
     expect(screen.queryByText('Settings saved.')).not.toBeInTheDocument();
   });
 
+  it('offers French and German skill locales and saves the selection', async () => {
+    const user = userEvent.setup();
+    const savedSettings = { ...connectedSettings, locale: 'fr-FR' };
+
+    vi.mocked(api).mockImplementation(async (path: string, options?: RequestInit) => {
+      if (path === '/api/settings' && options?.method === 'PUT') {
+        const body = JSON.parse(options.body as string) as { locale: string };
+        expect(body.locale).toBe('fr-FR');
+        return savedSettings;
+      }
+      if (path === '/api/settings') return connectedSettings;
+      if (path === '/api/plex/libraries') return { items: [] };
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<SettingsPage />);
+
+    const select = await screen.findByLabelText(/alexa skill locale/i);
+    expect(screen.getByRole('option', { name: /Français \(France\) \(fr-FR\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Deutsch \(Deutschland\) \(de-DE\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /English \(UK\) \(en-GB\)/ })).toBeInTheDocument();
+    await user.selectOptions(select, 'fr-FR');
+    await user.click(screen.getByRole('button', { name: /save settings/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Settings saved.');
+  });
+
+  it('hydrates a saved German skill locale', async () => {
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (path === '/api/settings') return { ...connectedSettings, locale: 'de-DE' };
+      if (path === '/api/plex/libraries') return { items: [] };
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<SettingsPage />);
+
+    expect(await screen.findByLabelText(/alexa skill locale/i)).toHaveValue('de-DE');
+  });
+
   it('shows password feedback in the password form only', async () => {
     const user = userEvent.setup();
     mockConnectedSettings();

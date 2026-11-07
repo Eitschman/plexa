@@ -83,8 +83,8 @@ export function AlexaSetupChecklist({
               Download interaction model
             </button>
             <p className="text-xs">
-              File includes invocation name <code>{trimmedInvocation || '…'}</code>.
-              Locale <code>{locale}</code> is used for the filename and must match the language you chose in the console.
+              File includes invocation name <code>{trimmedInvocation || '…'}</code> and the{' '}
+              <code>{locale}</code> interaction model. Import it into the same locale in the console.
             </p>
           </div>
         </li>

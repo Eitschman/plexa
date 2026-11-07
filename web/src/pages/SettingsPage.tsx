@@ -470,12 +470,15 @@ export function SettingsPage() {
             <Field label="Alexa skill ID" value={alexaSkillId} onChange={setAlexaSkillId} />
             <Field label="Invocation name" value={invocationName} onChange={setInvocationName} />
             <label className="block space-y-1">
-              <span className="text-sm text-muted">Locale</span>
+              <span className="text-sm text-muted">Alexa skill locale</span>
               <select className="input" value={locale} onChange={(e) => setLocale(e.target.value)}>
                 {ALEXA_LOCALES.map((option) => (
                   <option key={option.value} value={option.value}>{option.label} ({option.value})</option>
                 ))}
               </select>
+              <p className="text-xs text-muted">
+                Chooses the interaction model you download. Spoken replies follow the language of the Alexa device.
+              </p>
             </label>
             <button className="btn btn-primary" type="submit">Save settings</button>
             {configMessage && <p className="text-sm text-success" role="status">{configMessage}</p>}
